@@ -5,7 +5,7 @@ description = "Local-first meeting recorder. No bot. Audio stays on this Mac."
 authors = ["Bogdan Veliscu"]
 edition = "2021"
 license = "MIT"
-default-run = "sotto-demo"
+default-run = "sotto"
 
 [lib]
 name = "sotto_lib"

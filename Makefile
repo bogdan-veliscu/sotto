@@ -1,4 +1,4 @@
-.PHONY: graph verify contract demo lint test dev check lock ci
+.PHONY: graph verify contract demo lint test dev check lock ci build
 
 PYTEST = python3 -m pytest
 CARGO = cargo
@@ -31,6 +31,10 @@ demo:
 
 dev:
 	$(NPM) run tauri dev
+
+# macOS desk .app (skips flaky DMG). Binary is `sotto`, not sotto-demo.
+build:
+	$(NPM) run tauri -- build --bundles app
 
 # Same gates as .github/workflows/ci.yml (minus npm ci).
 ci: graph
