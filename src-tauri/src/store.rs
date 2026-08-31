@@ -335,17 +335,34 @@ impl Store {
             .or(self.get_setting("default_model")?)
             .unwrap_or_else(|| FIXTURE_ENGINE_ID.to_string());
         let engine = engines::resolve_engine(&requested, cloud, &catalog)?;
-        if engine.id != FIXTURE_ENGINE_ID {
-            return Err(SottoError::app(
-                "ENGINE_NOT_WIRED",
-                format!("{} is catalogued but not wired in this wave.", engine.name),
-                true,
-                "Use Fixture replay until Parakeet / Whisper land in a later wave.",
-            ));
-        }
-        let result = engines::fixture_transcript();
-        self.persist_transcript(session_id, engine.id.as_str(), &result)?;
+        let engine_id = engine.id.clone();
+        // Transcribe on-device. Local weights only; never downloads, never
+        // silently selects cloud. Fixture-replay stays fully offline.
+        let wav = self.read_session_wav(session_id)?;
+        let result = crate::stt::transcribe_local(&engine_id, &wav, &self.data_dir)?;
+        self.persist_transcript(session_id, result.engine_id.as_str(), &result)?;
         self.get_detail(session_id)
+    }
+
+    /// Decrypt the session's stored audio to plaintext WAV bytes for
+    /// on-device transcription. Returns empty bytes when no audio asset
+    /// exists (fixture-replay ignores the audio).
+    fn read_session_wav(&self, session_id: &str) -> Result<Vec<u8>> {
+        let rel: Option<String> = self
+            .conn
+            .query_row(
+                "SELECT file_path FROM audio_assets WHERE session_id = ?1 LIMIT 1",
+                params![session_id],
+                |row| row.get(0),
+            )
+            .optional()?;
+        match rel {
+            Some(rel) => {
+                let packed = fs::read(self.data_dir.join(rel))?;
+                crypto::decrypt(&self.master_key, &packed)
+            }
+            None => Ok(Vec::new()),
+        }
     }
 
     fn persist_transcript(
