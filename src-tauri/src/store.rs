@@ -574,6 +574,24 @@ impl Store {
         Ok(out)
     }
 
+    pub fn export_markdown_file(&self, _session_id: &str, _dest: &Path) -> Result<()> {
+        Err(SottoError::app(
+            "NOT_IMPLEMENTED",
+            "file export is not implemented in this wave",
+            true,
+            "Wait for notes-export GREEN.",
+        ))
+    }
+
+    pub fn privacy_settings(&self) -> Result<crate::notes::PrivacySettings> {
+        Err(SottoError::app(
+            "NOT_IMPLEMENTED",
+            "privacy_settings is not implemented in this wave",
+            true,
+            "Wait for notes-export GREEN.",
+        ))
+    }
+
     pub fn audio_is_ciphertext(&self, session_id: &str) -> Result<bool> {
         let path: String = self.conn.query_row(
             "SELECT file_path FROM audio_assets WHERE session_id = ?1 LIMIT 1",

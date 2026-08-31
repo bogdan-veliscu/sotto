@@ -5,14 +5,14 @@ mod store;
 pub mod capture;
 pub mod stt;
 pub mod install;
+pub mod notes;
 pub use error::SottoError;
 pub use engines::{catalog, Engine, InstallState};
+pub use store::Store;
 
 use std::path::Path;
 
 use serde::Serialize;
-
-use store::Store;
 
 #[cfg(feature = "desktop")]
 mod commands;

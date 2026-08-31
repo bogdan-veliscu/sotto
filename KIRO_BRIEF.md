@@ -8,7 +8,7 @@ Sotto is a **local-first meeting recorder**. Headline: a meeting recorded on thi
 
 PR 0 (shipped): fixture capture → AES-GCM → fixture-replay → FTS5 → delete-all.
 
-**Current DAG wave: 11–12 (`model-install`).** Implement `src-tauri/src/install.rs`. Demo stays fixture and must not download weights. See `docs/PR_PLAN.md`.
+**Current DAG wave: 13–14 (`notes-export`).** Implement `src-tauri/src/notes.rs`. Local extractive notes only. See `docs/PR_PLAN.md`.
 
 ## Commands
 
