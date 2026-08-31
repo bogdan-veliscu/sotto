@@ -1,8 +1,6 @@
 use std::fs;
 
-use sotto_lib::capture::{
-    record_sine, start_live, CaptureConfig, CaptureSource, ChunkedRecorder,
-};
+use sotto_lib::capture::{record_sine, start_live, CaptureConfig, CaptureSource, ChunkedRecorder};
 use sotto_lib::demo_pipeline;
 use sotto_lib::install::{
     delete_model, install_bytes, overlay_catalog, parakeet_weights_path, PARAKEET_ENGINE_ID,
@@ -22,8 +20,16 @@ fn is_wav(bytes: &[u8]) -> bool {
 fn ct_capture_wav() {
     let result = record_sine(200, 16_000).expect("record_sine");
     assert!(is_wav(&result.wav), "sine output must be a WAV");
-    assert!(result.duration_ms >= 150, "duration too short: {}", result.duration_ms);
-    assert!(result.duration_ms <= 250, "duration too long: {}", result.duration_ms);
+    assert!(
+        result.duration_ms >= 150,
+        "duration too short: {}",
+        result.duration_ms
+    );
+    assert!(
+        result.duration_ms <= 250,
+        "duration too long: {}",
+        result.duration_ms
+    );
 }
 
 #[test]
@@ -55,7 +61,11 @@ fn ct_crash_partial() {
     drop(rec);
     let recovered = ChunkedRecorder::recover(dir.path()).expect("recover");
     assert!(is_wav(&recovered.wav));
-    assert!(recovered.duration_ms >= 900, "recovered duration {}", recovered.duration_ms);
+    assert!(
+        recovered.duration_ms >= 900,
+        "recovered duration {}",
+        recovered.duration_ms
+    );
 }
 
 #[test]
@@ -109,13 +119,7 @@ const PARAKEET_SHA256: &str = "0b73fc4fa437d2d3c146f9aa3dbf7f3b538e130ba3d0aa696
 #[test]
 fn ct_checksum() {
     let dir = tempdir().unwrap();
-    let err = install_bytes(
-        PARAKEET_ENGINE_ID,
-        dir.path(),
-        PARAKEET_BLOB,
-        "deadbeef",
-    )
-    .unwrap_err();
+    let err = install_bytes(PARAKEET_ENGINE_ID, dir.path(), PARAKEET_BLOB, "deadbeef").unwrap_err();
     assert_eq!(err.code(), "CHECKSUM_MISMATCH");
     assert!(
         !parakeet_weights_path(dir.path()).exists(),
@@ -214,7 +218,10 @@ fn ct_summary_from_transcript() {
         notes.action_items.to_lowercase(),
         notes.key_points.to_lowercase()
     );
-    assert!(blob.contains("privileged"), "summary must keep the distinctive claim");
+    assert!(
+        blob.contains("privileged"),
+        "summary must keep the distinctive claim"
+    );
     assert!(
         blob.contains("follow up") || blob.contains("engagement"),
         "action items must keep the follow-up"
@@ -225,13 +232,17 @@ fn ct_summary_from_transcript() {
 fn ct_export_file() {
     let dir = tempdir().unwrap();
     let store = Store::open(dir.path()).unwrap();
-    let session = store.create_session(Some("Privilege consult".into()), "mixed").unwrap();
+    let session = store
+        .create_session(Some("Privilege consult".into()), "mixed")
+        .unwrap();
     store.acknowledge_consent(&session.id).unwrap();
     store.start_recording(&session.id).unwrap();
     store.finalize_with_wav(&session.id, FIXTURE_WAV).unwrap();
     store.transcribe(&session.id, None).unwrap();
     let dest = dir.path().join("export.md");
-    store.export_markdown_file(&session.id, &dest).expect("export file");
+    store
+        .export_markdown_file(&session.id, &dest)
+        .expect("export file");
     let body = fs::read_to_string(&dest).expect("read export");
     assert!(body.to_lowercase().contains("privileged"));
 }

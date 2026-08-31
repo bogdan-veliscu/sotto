@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { api, formatClock, formatStamp, isTauri } from '$lib/api';
-  import type { Engine, SearchHit, Session, SessionDetail } from '$lib/types';
+  import type { Engine, PrivacySettings, SearchHit, Session, SessionDetail } from '$lib/types';
+  import { save } from '@tauri-apps/plugin-dialog';
 
   let tauri = $state(false);
   let onboarded = $state(false);
@@ -19,6 +20,11 @@
   let consentOpen = $state(false);
   let pendingId = $state<string | null>(null);
   let titleDraft = $state('');
+  let privacy = $state<PrivacySettings>({
+    telemetry: 'off',
+    cloud_mode: 'off',
+    retention_days: '0',
+  });
 
   const consentText =
     'I am recording this conversation with Sotto. The audio stays on this computer. I have permission to record.';
@@ -119,6 +125,27 @@
     await navigator.clipboard.writeText(md);
   }
 
+  async function saveMd() {
+    if (!selected) return;
+    const dest = await save({
+      defaultPath: `${selected.session.title.replace(/[/\\]/g, '-')}.md`,
+      filters: [{ name: 'Markdown', extensions: ['md'] }],
+    });
+    if (!dest) return;
+    await api.exportFile(selected.session.id, dest);
+  }
+
+  async function openSettings() {
+    settingsOpen = true;
+    if (!tauri) return;
+    privacy = await api.privacy();
+  }
+
+  async function setPrivacy(key: 'telemetry' | 'cloud_mode', value: string) {
+    await api.settingsSet(key, value);
+    privacy = await api.privacy();
+  }
+
   async function removeSelected() {
     if (!selected) return;
     await api.deleteSession(selected.session.id);
@@ -162,7 +189,7 @@
           Record
         </button>
       {/if}
-      <button class="ghost" onclick={() => (settingsOpen = !settingsOpen)}>Models</button>
+      <button class="ghost" onclick={() => openSettings().catch((e) => (err = String(e)))}>Models</button>
     </div>
   </header>
 
@@ -205,6 +232,7 @@
         <div class="title-row">
           <input class="title" bind:value={titleDraft} onchange={() => saveTitle().catch((e) => (err = String(e)))} />
           <button class="ghost" onclick={() => exportMd().catch((e) => (err = String(e)))}>Copy markdown</button>
+          <button class="ghost" onclick={() => saveMd().catch((e) => (err = String(e)))}>Save markdown</button>
           <button class="ghost" onclick={() => removeSelected().catch((e) => (err = String(e)))}>Delete</button>
         </div>
         <div class="meta mono">
@@ -222,6 +250,12 @@
           <section>
             <h2>Action items</h2>
             <pre>{selected.action_items}</pre>
+          </section>
+        {/if}
+        {#if selected.key_points}
+          <section>
+            <h2>Key points</h2>
+            <pre>{selected.key_points}</pre>
           </section>
         {/if}
         <section>
@@ -290,6 +324,32 @@
         </div>
       {/each}
       <p class="fine">Install is something you start. Demo never fetches weights. A failed checksum is discarded.</p>
+      <p class="wordmark privacy-h">Privacy</p>
+      <div class="engine">
+        <strong>Telemetry</strong>
+        <span class="mono">{privacy.telemetry}</span>
+        <p>Off unless you turn it on. Demo stays off.</p>
+        <button
+          class="ghost"
+          onclick={() =>
+            setPrivacy('telemetry', privacy.telemetry === 'on' ? 'off' : 'on').catch((e) => (err = String(e)))}
+        >
+          {privacy.telemetry === 'on' ? 'Turn off' : 'Turn on'}
+        </button>
+      </div>
+      <div class="engine">
+        <strong>Cloud mode</strong>
+        <span class="mono">{privacy.cloud_mode}</span>
+        <p>Cloud STT stays off unless you enable it. Fallback never selects cloud silently.</p>
+        <button
+          class="ghost"
+          onclick={() =>
+            setPrivacy('cloud_mode', privacy.cloud_mode === 'on' ? 'off' : 'on').catch((e) => (err = String(e)))}
+        >
+          {privacy.cloud_mode === 'on' ? 'Turn off' : 'Turn on'}
+        </button>
+      </div>
+      <p class="fine">Retention: {privacy.retention_days} days (0 keeps everything until you delete).</p>
       <button class="ghost" onclick={() => (settingsOpen = false)}>Close</button>
     </div>
   </div>
@@ -338,6 +398,7 @@
   .card { background: var(--paper); color: var(--ink); padding: 28px; width: min(520px, 100%); }
   .card.wide { width: min(640px, 100%); }
   .card .wordmark { font-size: 32px; display: block; margin-bottom: 12px; }
+  .privacy-h { font-size: 22px !important; margin-top: 16px; }
   .card ul { padding-left: 1.1rem; }
   .card blockquote { background: #e7dcc6; padding: 12px 14px; margin: 0 0 16px; }
   .actions { display: flex; gap: 8px; justify-content: flex-end; }
