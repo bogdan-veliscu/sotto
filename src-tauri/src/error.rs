@@ -43,6 +43,7 @@ impl SottoError {
 }
 
 #[derive(Serialize)]
+#[cfg_attr(not(feature = "desktop"), allow(dead_code))]
 pub struct ErrorBody {
     pub code: String,
     pub message: String,

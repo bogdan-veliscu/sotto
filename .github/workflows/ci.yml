@@ -22,9 +22,9 @@ jobs:
         run: python3 -m pip install pytest
       - name: Graph + Python contracts
         run: make graph && python3 -m pytest tests/contract -q --tb=short
-      - name: Rust contracts
-        run: cargo test --manifest-path src-tauri/Cargo.toml --lib --test contract
+      - name: Rust contracts (no GTK)
+        run: cargo test --manifest-path src-tauri/Cargo.toml --no-default-features --lib --test contract
       - name: Demo
-        run: cargo run --manifest-path src-tauri/Cargo.toml --quiet --bin sotto-demo
+        run: cargo run --manifest-path src-tauri/Cargo.toml --no-default-features --quiet --bin sotto-demo
       - name: UI check
         run: npm ci && npm run check

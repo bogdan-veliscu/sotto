@@ -1,9 +1,10 @@
-.PHONY: graph verify contract demo lint test dev check lock
+.PHONY: graph verify contract demo lint test dev check lock ci
 
-UV ?= uv
 PYTEST = python3 -m pytest
 CARGO = cargo
 NPM = npm
+MANIFEST = --manifest-path src-tauri/Cargo.toml
+CORE = --no-default-features
 
 graph:
 	python3 harness/scripts/validate_graph.py
@@ -16,23 +17,30 @@ lint:
 	$(NPM) run check
 
 verify: graph
-	cd src-tauri && $(CARGO) test --lib
+	$(CARGO) test $(MANIFEST) $(CORE) --lib
 	$(NPM) run check
 
 contract: graph
-	cd src-tauri && $(CARGO) test --test contract -- --nocapture
+	$(CARGO) test $(MANIFEST) $(CORE) --lib --test contract -- --nocapture
 	$(PYTEST) tests/contract -q --tb=short
 
 test: verify contract
 
 demo:
-	cd src-tauri && $(CARGO) run --quiet --bin sotto-demo
+	$(CARGO) run $(MANIFEST) $(CORE) --quiet --bin sotto-demo
 
 dev:
 	$(NPM) run tauri dev
 
-check: graph contract
-	@echo "sotto ok"
+# Same gates as .github/workflows/ci.yml (minus npm ci).
+ci: graph
+	$(CARGO) test $(MANIFEST) $(CORE) --lib --test contract
+	$(CARGO) run $(MANIFEST) $(CORE) --quiet --bin sotto-demo
+	$(PYTEST) tests/contract -q --tb=short
+	$(NPM) run check
+	@echo "sotto ci ok"
+
+check: ci
 
 status:
 	python3 harness/scripts/validate_graph.py --status

@@ -54,6 +54,7 @@ pub struct Store {
     master_key: [u8; KEY_LEN],
 }
 
+#[cfg_attr(not(feature = "desktop"), allow(dead_code))]
 impl Store {
     pub fn open(data_dir: &Path) -> Result<Self> {
         fs::create_dir_all(data_dir)?;

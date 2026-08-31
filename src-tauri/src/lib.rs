@@ -1,4 +1,3 @@
-mod commands;
 mod crypto;
 mod engines;
 mod error;
@@ -6,15 +5,14 @@ mod store;
 pub mod capture;
 pub use error::SottoError;
 
-use std::fs;
 use std::path::Path;
-use std::sync::Mutex;
 
 use serde::Serialize;
-use tauri::Manager;
 
-use commands::AppState;
 use store::Store;
+
+#[cfg(feature = "desktop")]
+mod commands;
 
 #[derive(Debug, Serialize)]
 pub struct DemoReport {
@@ -64,8 +62,15 @@ pub fn demo_pipeline(data_dir: &Path) -> error::Result<DemoReport> {
     })
 }
 
+#[cfg(feature = "desktop")]
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    use std::fs;
+    use std::sync::Mutex;
+    use tauri::Manager;
+
+    use commands::AppState;
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
