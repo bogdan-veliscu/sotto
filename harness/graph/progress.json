@@ -1,1 +1,1 @@
-{"current_wave": 7, "completed_nodes": ["SPEC-STORE", "SPEC-CAPTURE", "SPEC-SEARCH"], "notes": "PR 0 shipped. Wave 7-8 live-capture is RED. Kiro implements; demo stays fixture."}
+{"current_wave": 8, "completed_nodes": ["SPEC-STORE", "SPEC-CAPTURE", "SPEC-SEARCH", "SPEC-LIVE"], "notes": "PR 1 live-capture green. Demo stays fixture. Hardware tap/mic still CAPTURE_UNSUPPORTED."}
