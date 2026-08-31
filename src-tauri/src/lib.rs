@@ -83,6 +83,7 @@ pub fn run() {
             let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
             fs::create_dir_all(&dir)?;
             let store = Store::open(&dir).map_err(|e| e.to_string())?;
+            let _ = store.scrub_plaintext_temps();
             app.manage(AppState {
                 store: Mutex::new(store),
             });
@@ -111,6 +112,8 @@ pub fn run() {
             commands::model_install_file,
             commands::model_delete,
             commands::data_delete_all,
+            commands::key_report,
+            commands::retention_apply,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Sotto");

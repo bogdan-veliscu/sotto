@@ -281,3 +281,18 @@ pub fn model_delete(state: State<AppState>, engine_id: String) -> Result<(), Err
 pub fn data_delete_all(state: State<AppState>) -> Result<(), ErrorBody> {
     state.store.lock().unwrap().delete_all().map_err(map_err)
 }
+
+#[tauri::command]
+pub fn key_report(state: State<AppState>) -> Result<crate::keys::KeyReport, ErrorBody> {
+    state.store.lock().unwrap().key_report().map_err(map_err)
+}
+
+#[tauri::command]
+pub fn retention_apply(state: State<AppState>) -> Result<u32, ErrorBody> {
+    state
+        .store
+        .lock()
+        .unwrap()
+        .apply_retention()
+        .map_err(map_err)
+}
