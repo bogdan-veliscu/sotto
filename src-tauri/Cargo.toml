@@ -22,7 +22,11 @@ path = "src/bin/demo.rs"
 
 [features]
 default = ["desktop"]
-desktop = ["dep:tauri", "dep:tauri-plugin-opener", "dep:tauri-build"]
+desktop = ["dep:tauri", "dep:tauri-plugin-opener", "dep:tauri-build", "whisper"]
+# Optional on-device Whisper inference. Pulls whisper-rs/ggml. Off by default
+# and off on Linux CI (`cargo test --no-default-features`) so core contract
+# tests never compile ggml. Weights are always local; nothing downloads.
+whisper = ["dep:whisper-rs"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [], optional = true }
@@ -40,6 +44,7 @@ hex = "0.4"
 uuid = { version = "1", features = ["v4", "serde"] }
 thiserror = "2"
 directories = "5"
+whisper-rs = { version = "0.12", optional = true }
 
 [dev-dependencies]
 tempfile = "3"

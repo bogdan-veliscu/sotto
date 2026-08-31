@@ -64,3 +64,19 @@ waves:
       - id: T8-mic-error
         summary: start_live(System) returns CAPTURE_UNSUPPORTED recoverable; optional CPAL mic
         contract_tests: [CT-mic-unsupported-is-recoverable]
+  - id: 9
+    spec: local-stt
+    name: whisper-policy
+    depends_on: [8]
+    tasks:
+      - id: T9-whisper-policy
+        summary: missing Whisper weights return ENGINE_NOT_INSTALLED; demo never downloads
+        contract_tests: [CT-whisper-local-only, CT-demo-no-download]
+  - id: 10
+    spec: local-stt
+    name: whisper-file
+    depends_on: [9]
+    tasks:
+      - id: T10-whisper-file
+        summary: present invalid weights return ENGINE_MODEL_INVALID; no HTTP fetch
+        contract_tests: [CT-whisper-weights-are-local]

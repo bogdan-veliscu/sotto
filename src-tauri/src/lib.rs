@@ -3,6 +3,7 @@ mod engines;
 mod error;
 mod store;
 pub mod capture;
+pub mod stt;
 pub use error::SottoError;
 
 use std::path::Path;

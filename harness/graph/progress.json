@@ -1,1 +1,1 @@
-{"current_wave": 8, "completed_nodes": ["SPEC-STORE", "SPEC-CAPTURE", "SPEC-SEARCH", "SPEC-LIVE"], "notes": "PR 1 live-capture green. Demo stays fixture. Hardware tap/mic still CAPTURE_UNSUPPORTED."}
+{"current_wave": 10, "completed_nodes": ["SPEC-STORE", "SPEC-CAPTURE", "SPEC-SEARCH", "SPEC-LIVE", "SPEC-STT"], "notes": "PR 2 local-stt: Whisper local weights, no download in demo. Catalog JSON stays not-installed; runtime checks the ggml file."}

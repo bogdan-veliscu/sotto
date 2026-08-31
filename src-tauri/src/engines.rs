@@ -50,7 +50,9 @@ pub fn catalog() -> Result<Vec<Engine>> {
     Ok(file.engines)
 }
 
-/// Resolve a transcription engine. Never silently switches to cloud/api.
+/// Resolve a transcription engine. Never silently switches to cloud/api,
+/// and never silently substitutes fixture-replay for a not-ready local engine
+/// unless `SOTTO_ALLOW_FIXTURE_FALLBACK=1` is set.
 pub fn resolve_engine<'a>(
     requested: &str,
     cloud_enabled: bool,
@@ -76,6 +78,14 @@ pub fn resolve_engine<'a>(
         if chosen.install_state == InstallState::Ready {
             return Ok(chosen);
         }
+        // Catalog install_state is not the source of truth for Whisper weights
+        // already on disk. Hand the engine to transcribe_local unless the
+        // caller opted into fixture-replay fallback.
+        if chosen.mode == EngineMode::Local && fixture_fallback_allowed() {
+            // fall through to the ready local fixture
+        } else if chosen.mode == EngineMode::Local {
+            return Ok(chosen);
+        }
     }
 
     engines
@@ -89,6 +99,10 @@ pub fn resolve_engine<'a>(
                 "Install a local model in Settings. Sotto will not send audio to the cloud.",
             )
         })
+}
+
+fn fixture_fallback_allowed() -> bool {
+    std::env::var(crate::stt::FIXTURE_FALLBACK_ENV).ok().as_deref() == Some("1")
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -181,8 +195,13 @@ mod tests {
         ];
         let resolved = resolve_engine("cloud-stt", false, &engines).unwrap_err();
         assert_eq!(resolved.code(), "CLOUD_DISABLED");
-        let fallback = resolve_engine("broken-local", false, &engines).unwrap();
-        assert_eq!(fallback.id, FIXTURE_ENGINE_ID);
-        assert_eq!(fallback.mode, EngineMode::Local);
+        // Catalog not-installed is not a silent fixture fallback. The engine
+        // is returned so transcribe_local can inspect local weights.
+        let not_ready = resolve_engine("broken-local", false, &engines).unwrap();
+        assert_eq!(not_ready.id, "broken-local");
+        assert_eq!(not_ready.mode, EngineMode::Local);
+        let ready = resolve_engine(FIXTURE_ENGINE_ID, false, &engines).unwrap();
+        assert_eq!(ready.id, FIXTURE_ENGINE_ID);
+        assert_eq!(ready.mode, EngineMode::Local);
     }
 }
