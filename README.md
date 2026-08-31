@@ -52,6 +52,8 @@ make dev           # desktop app
 | `make dev` | `npm run tauri dev` |
 | `make test` | verify + contract |
 
+Roadmap: `docs/PR_PLAN.md` (six PRs after this commit to finish v1).
+
 ## How we work (Kiro)
 
 Same method as the Ready / Spec / Ship labs: **Requirements-First specs, a domain DAG, contract tests as the done gate.**
@@ -85,6 +87,8 @@ tests/contract/         Python invariant tests
 docs/                   Product spec pack
 .kiro/                  Steering, specs, hooks, agent `scribe`
 ```
+
+See `docs/PR_PLAN.md` for the six PRs that complete v1. Wave 1 is the fixture pipeline only.
 
 ## Privacy
 

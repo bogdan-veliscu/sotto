@@ -4,6 +4,7 @@ Product specs for Sotto. These are the source of truth for humans. `.kiro/specs/
 
 | File | What |
 |---|---|
+| [PR_PLAN.md](PR_PLAN.md) | Six PRs to finish v1 |
 | [DECISIONS.md](DECISIONS.md) | Name, founder override, wave-1 cuts |
 | [PRODUCT_BRIEF.md](PRODUCT_BRIEF.md) | Problem, users, non-goals |
 | [PRD.md](PRD.md) | Requirements |

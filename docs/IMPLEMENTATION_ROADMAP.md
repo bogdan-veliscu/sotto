@@ -1,25 +1,13 @@
 # Implementation roadmap
 
-## Sprint 1 — this repo
+Canonical sequence: [`docs/PR_PLAN.md`](PR_PLAN.md).
 
-Tauri app, Svelte desk, session store, consent, fixture pipeline, public docs.
+**v1 is six PRs after the initial public commit.** Do not start PR 2 until PR 1's contract tests are green.
 
-## Sprint 2
-
-macOS Core Audio taps. Save local audio. Stop/finalize.
-
-## Sprint 3
-
-STT abstraction with Parakeet + Whisper fallback. Checksums. Install UI.
-
-## Sprint 4
-
-Transcript polish, history, FTS filters.
-
-## Sprint 5
-
-Summary models, settings, file export dialog.
-
-## Sprint 6
-
-Hardening, signing, beta.
+| Sprint | PR | Spec |
+|--------|----|------|
+| 1 shipped | 0 | session-store, capture-consent, search-notes |
+| 2 | 1 live-capture | live-capture |
+| 3 | 2–3 local STT | local-stt, model-install |
+| 4 | 4–5 notes + search | notes-export, search-filters |
+| 5–6 | 6 harden | harden |
