@@ -23,7 +23,20 @@ export const api = {
   stopFixture: (sessionId: string) => call<Session>('recorder_stop_fixture', { sessionId }),
   transcribe: (sessionId: string, modelId?: string) =>
     call<SessionDetail>('transcribe_run', { sessionId, modelId }),
-  search: (q: string) => call<SearchHit[]>('search_query', { q, limit: 20 }),
+  search: (
+    q: string,
+    filters?: { title?: string; createdFrom?: string; createdTo?: string; tag?: string },
+  ) =>
+    call<SearchHit[]>('search_query', {
+      q,
+      limit: 20,
+      title: filters?.title,
+      createdFrom: filters?.createdFrom,
+      createdTo: filters?.createdTo,
+      tag: filters?.tag,
+    }),
+  setTags: (sessionId: string, tags: string[]) =>
+    call<string[]>('sessions_set_tags', { sessionId, tags }),
   rename: (sessionId: string, title: string) =>
     call<Session>('sessions_rename', { sessionId, title }),
   exportMd: (sessionId: string) => call<string>('sessions_export', { sessionId }),

@@ -29,6 +29,7 @@ export type SessionDetail = {
   segments: Segment[];
   audio_encrypted: boolean;
   audio_path: string | null;
+  tags: string[];
 };
 
 export type SearchHit = {
