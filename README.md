@@ -47,8 +47,9 @@ make dev           # desktop app
 | Target | What it does |
 |---|---|
 | `make graph` | Validate domain graph + SHA-256 fixture lock |
-| `make contract` | Graph + Rust pipeline + Python catalog tests |
+| `make contract` | Graph + core Rust tests + Python catalog tests |
 | `make demo` | Offline fixture → encrypt → transcribe → search → delete-all |
+| `make ci` | Same gates as GitHub Actions (no GTK/WebKit) |
 | `make dev` | `npm run tauri dev` |
 | `make test` | verify + contract |
 

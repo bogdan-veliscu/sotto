@@ -26,7 +26,7 @@ Do not `/spec new`. If the graph needs a new invariant, open an issue first.
 - macOS 14.4+ for the desktop app.
 - Rust stable, Node 22+, Python 3.12+.
 - `npm install`
-- `make demo` must pass before you push.
+- `make ci` must pass before you push (same gates as GitHub Actions, no GTK).
 
 Windows/Linux can run `make graph`, the Python tests, and `cargo test` for the core. Live capture is macOS-only.
 

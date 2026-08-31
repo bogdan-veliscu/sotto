@@ -46,5 +46,21 @@ waves:
     depends_on: [5]
     tasks:
       - id: T6-demo
-        summary: make demo / make contract / delete-all
+        summary: make demo, make contract, delete-all
         contract_tests: [CT-delete-all]
+  - id: 7
+    spec: live-capture
+    name: wav-chunks
+    depends_on: [6]
+    tasks:
+      - id: T7-wav-chunks
+        summary: record_sine + ChunkedRecorder pause/resume/flush/recover
+        contract_tests: [CT-capture-wav, CT-pause-resume, CT-crash-partial, CT-demo-still-offline]
+  - id: 8
+    spec: live-capture
+    name: live-backend
+    depends_on: [7]
+    tasks:
+      - id: T8-mic-error
+        summary: start_live(System) returns CAPTURE_UNSUPPORTED recoverable; optional CPAL mic
+        contract_tests: [CT-mic-unsupported-is-recoverable]

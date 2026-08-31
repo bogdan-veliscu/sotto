@@ -61,16 +61,62 @@
       "statement": "Golden fixtures are content-addressed.",
       "ears": "WHEN fixtures are validated, THE SYSTEM SHALL verify SHA-256 digests against harness/graph/fixture-lock.json."
     },
+    {
+      "id": "INV-CAPTURE-WAV",
+      "type": "invariant",
+      "severity": "HIGH",
+      "control_id": "CONTROL_CAPTURE_WAV",
+      "statement": "Sine capture produces a valid 16 kHz mono WAV.",
+      "ears": "WHEN record_sine runs for a positive duration, THE SYSTEM SHALL return RIFF/WAVE PCM bytes."
+    },
+    {
+      "id": "INV-PAUSE-RESUME",
+      "type": "invariant",
+      "severity": "HIGH",
+      "control_id": "CONTROL_PAUSE_RESUME",
+      "statement": "Paused PCM is not part of duration.",
+      "ears": "WHEN a ChunkedRecorder is paused, THE SYSTEM SHALL ignore PCM until resume."
+    },
+    {
+      "id": "INV-CRASH-PARTIAL",
+      "type": "invariant",
+      "severity": "HIGH",
+      "control_id": "CONTROL_CRASH_PARTIAL",
+      "statement": "Flushed chunks are recoverable if stop never runs.",
+      "ears": "WHEN ChunkedRecorder is dropped after flush, THE SYSTEM SHALL recover a valid WAV."
+    },
+    {
+      "id": "INV-DEMO-STILL-OFFLINE",
+      "type": "invariant",
+      "severity": "CRITICAL",
+      "control_id": "CONTROL_DEMO_OFFLINE",
+      "statement": "Demo path stays fixture and offline after live capture lands.",
+      "ears": "WHEN demo_pipeline runs, THE SYSTEM SHALL use fixture-replay and zero network_calls."
+    },
+    {
+      "id": "INV-CAPTURE-UNSUPPORTED",
+      "type": "invariant",
+      "severity": "HIGH",
+      "control_id": "CONTROL_CAPTURE_UNSUPPORTED",
+      "statement": "Missing system-audio backend is a recoverable error, not a cloud fallback.",
+      "ears": "WHEN start_live(System) has no tap, THE SYSTEM SHALL return CAPTURE_UNSUPPORTED."
+    },
     {"id": "SPEC-STORE", "type": "spec", "kiro_name": "session-store", "wave": [1, 2]},
     {"id": "SPEC-CAPTURE", "type": "spec", "kiro_name": "capture-consent", "wave": [3, 4]},
     {"id": "SPEC-SEARCH", "type": "spec", "kiro_name": "search-notes", "wave": [5, 6]},
+    {"id": "SPEC-LIVE", "type": "spec", "kiro_name": "live-capture", "wave": [7, 8]},
     {"id": "CT-no-cloud-default", "type": "contract_test", "path": "tests/contract/test_catalog.py"},
     {"id": "CT-no-silent-cloud", "type": "contract_test", "path": "src-tauri/src/engines.rs"},
     {"id": "CT-consent-before-record", "type": "contract_test", "path": "src-tauri/src/store.rs"},
     {"id": "CT-audio-encrypted", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
     {"id": "CT-fts-search", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
     {"id": "CT-delete-all", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
-    {"id": "CT-fixtures-lock", "type": "contract_test", "path": "tests/contract/test_fixtures.py"}
+    {"id": "CT-fixtures-lock", "type": "contract_test", "path": "tests/contract/test_fixtures.py"},
+    {"id": "CT-capture-wav", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {"id": "CT-pause-resume", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {"id": "CT-crash-partial", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {"id": "CT-demo-still-offline", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {"id": "CT-mic-unsupported-is-recoverable", "type": "contract_test", "path": "src-tauri/tests/contract.rs"}
   ],
   "edges": [
     {"from": "AudioAsset", "to": "Session", "rel": "REFERENCES"},
@@ -82,12 +128,22 @@
     {"from": "INV-FTS-SEARCH", "to": "CT-fts-search", "rel": "ENFORCED_BY"},
     {"from": "INV-DELETE-ALL", "to": "CT-delete-all", "rel": "ENFORCED_BY"},
     {"from": "INV-FIXTURE-LOCK", "to": "CT-fixtures-lock", "rel": "ENFORCED_BY"},
+    {"from": "INV-CAPTURE-WAV", "to": "CT-capture-wav", "rel": "ENFORCED_BY"},
+    {"from": "INV-PAUSE-RESUME", "to": "CT-pause-resume", "rel": "ENFORCED_BY"},
+    {"from": "INV-CRASH-PARTIAL", "to": "CT-crash-partial", "rel": "ENFORCED_BY"},
+    {"from": "INV-DEMO-STILL-OFFLINE", "to": "CT-demo-still-offline", "rel": "ENFORCED_BY"},
+    {"from": "INV-CAPTURE-UNSUPPORTED", "to": "CT-mic-unsupported-is-recoverable", "rel": "ENFORCED_BY"},
     {"from": "SPEC-STORE", "to": "CT-no-cloud-default", "rel": "COVERS"},
     {"from": "SPEC-STORE", "to": "CT-fixtures-lock", "rel": "COVERS"},
     {"from": "SPEC-STORE", "to": "CT-no-silent-cloud", "rel": "COVERS"},
     {"from": "SPEC-CAPTURE", "to": "CT-consent-before-record", "rel": "COVERS"},
     {"from": "SPEC-CAPTURE", "to": "CT-audio-encrypted", "rel": "COVERS"},
     {"from": "SPEC-SEARCH", "to": "CT-fts-search", "rel": "COVERS"},
-    {"from": "SPEC-SEARCH", "to": "CT-delete-all", "rel": "COVERS"}
+    {"from": "SPEC-SEARCH", "to": "CT-delete-all", "rel": "COVERS"},
+    {"from": "SPEC-LIVE", "to": "CT-capture-wav", "rel": "COVERS"},
+    {"from": "SPEC-LIVE", "to": "CT-pause-resume", "rel": "COVERS"},
+    {"from": "SPEC-LIVE", "to": "CT-crash-partial", "rel": "COVERS"},
+    {"from": "SPEC-LIVE", "to": "CT-demo-still-offline", "rel": "COVERS"},
+    {"from": "SPEC-LIVE", "to": "CT-mic-unsupported-is-recoverable", "rel": "COVERS"}
   ]
 }
