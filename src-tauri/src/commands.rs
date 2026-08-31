@@ -153,12 +153,39 @@ pub fn search_query(
     state: State<AppState>,
     q: String,
     limit: Option<i64>,
+    title: Option<String>,
+    created_from: Option<String>,
+    created_to: Option<String>,
+    tag: Option<String>,
 ) -> Result<Vec<SearchHit>, ErrorBody> {
     state
         .store
         .lock()
         .unwrap()
-        .search(&q, limit.unwrap_or(20))
+        .search_filtered(
+            &crate::search::SearchFilter {
+                q,
+                title,
+                created_from,
+                created_to,
+                tag,
+            },
+            limit.unwrap_or(20),
+        )
+        .map_err(map_err)
+}
+
+#[tauri::command]
+pub fn sessions_set_tags(
+    state: State<AppState>,
+    session_id: String,
+    tags: Vec<String>,
+) -> Result<Vec<String>, ErrorBody> {
+    state
+        .store
+        .lock()
+        .unwrap()
+        .set_tags(&session_id, &tags)
         .map_err(map_err)
 }
 

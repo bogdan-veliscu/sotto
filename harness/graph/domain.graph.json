@@ -172,6 +172,23 @@
       "ears": "WHEN privacy_settings is read on a fresh store, THE SYSTEM SHALL report telemetry off and cloud_mode off."
     },
     {"id": "SPEC-NOTES", "type": "spec", "kiro_name": "notes-export", "wave": [13, 14]},
+    {
+      "id": "INV-FILTER-DATE",
+      "type": "invariant",
+      "severity": "HIGH",
+      "control_id": "CONTROL_FILTER_DATE",
+      "statement": "Search date range returns only sessions created inside the inclusive bounds.",
+      "ears": "WHEN search_filtered is given created_from and created_to, THE SYSTEM SHALL omit sessions outside that range."
+    },
+    {
+      "id": "INV-TAG-ROUNDTRIP",
+      "type": "invariant",
+      "severity": "HIGH",
+      "control_id": "CONTROL_TAGS",
+      "statement": "Tags persist locally and can filter search.",
+      "ears": "WHEN set_tags runs, THE SYSTEM SHALL return the same tags from list_tags and from tag search."
+    },
+    {"id": "SPEC-FILTERS", "type": "spec", "kiro_name": "search-filters", "wave": [15, 16]},
     {"id": "CT-no-cloud-default", "type": "contract_test", "path": "tests/contract/test_catalog.py"},
     {"id": "CT-no-silent-cloud", "type": "contract_test", "path": "src-tauri/src/engines.rs"},
     {"id": "CT-consent-before-record", "type": "contract_test", "path": "src-tauri/src/store.rs"},
@@ -191,7 +208,9 @@
     {"id": "CT-parakeet-local", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
     {"id": "CT-summary-from-transcript", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
     {"id": "CT-export-file", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
-    {"id": "CT-settings-privacy", "type": "contract_test", "path": "src-tauri/tests/contract.rs"}
+    {"id": "CT-settings-privacy", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {"id": "CT-filter-date", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {"id": "CT-tag-roundtrip", "type": "contract_test", "path": "src-tauri/tests/contract.rs"}
   ],
   "edges": [
     {"from": "AudioAsset", "to": "Session", "rel": "REFERENCES"},
@@ -236,6 +255,10 @@
     {"from": "INV-SETTINGS-PRIVACY", "to": "CT-settings-privacy", "rel": "ENFORCED_BY"},
     {"from": "SPEC-NOTES", "to": "CT-summary-from-transcript", "rel": "COVERS"},
     {"from": "SPEC-NOTES", "to": "CT-export-file", "rel": "COVERS"},
-    {"from": "SPEC-NOTES", "to": "CT-settings-privacy", "rel": "COVERS"}
+    {"from": "SPEC-NOTES", "to": "CT-settings-privacy", "rel": "COVERS"},
+    {"from": "INV-FILTER-DATE", "to": "CT-filter-date", "rel": "ENFORCED_BY"},
+    {"from": "INV-TAG-ROUNDTRIP", "to": "CT-tag-roundtrip", "rel": "ENFORCED_BY"},
+    {"from": "SPEC-FILTERS", "to": "CT-filter-date", "rel": "COVERS"},
+    {"from": "SPEC-FILTERS", "to": "CT-tag-roundtrip", "rel": "COVERS"}
   ]
 }

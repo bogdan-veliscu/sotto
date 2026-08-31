@@ -4,6 +4,7 @@ mod engines;
 mod error;
 pub mod install;
 pub mod notes;
+pub mod search;
 mod store;
 pub mod stt;
 pub use engines::{catalog, Engine, InstallState};
@@ -100,6 +101,7 @@ pub fn run() {
             commands::recorder_stop_fixture,
             commands::transcribe_run,
             commands::search_query,
+            commands::sessions_set_tags,
             commands::sessions_rename,
             commands::sessions_export,
             commands::sessions_export_file,

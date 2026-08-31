@@ -6,6 +6,7 @@ use sotto_lib::install::{
     delete_model, install_bytes, overlay_catalog, parakeet_weights_path, PARAKEET_ENGINE_ID,
 };
 use sotto_lib::notes::extract_notes;
+use sotto_lib::search::SearchFilter;
 use sotto_lib::stt::{transcribe_local, whisper_weights_path, WHISPER_ENGINE_ID};
 use sotto_lib::{catalog, InstallState, Store};
 use tempfile::tempdir;
@@ -254,4 +255,60 @@ fn ct_settings_privacy() {
     let privacy = store.privacy_settings().expect("privacy");
     assert_eq!(privacy.telemetry, "off");
     assert_eq!(privacy.cloud_mode, "off");
+}
+
+#[test]
+fn ct_filter_date() {
+    let dir = tempdir().unwrap();
+    let store = Store::open(dir.path()).unwrap();
+    let old = store
+        .create_session(Some("Old consult".into()), "mixed")
+        .unwrap();
+    let new = store
+        .create_session(Some("New consult".into()), "mixed")
+        .unwrap();
+    store.set_created_at(&old.id, "100").expect("backdate old");
+    store.set_created_at(&new.id, "500").expect("backdate new");
+    let hits = store
+        .search_filtered(
+            &SearchFilter {
+                created_from: Some("400".into()),
+                created_to: Some("600".into()),
+                ..Default::default()
+            },
+            20,
+        )
+        .expect("date filter");
+    assert_eq!(hits.len(), 1, "expected only the in-range session");
+    assert_eq!(hits[0].session_id, new.id);
+}
+
+#[test]
+fn ct_tag_roundtrip() {
+    let dir = tempdir().unwrap();
+    let store = Store::open(dir.path()).unwrap();
+    let session = store
+        .create_session(Some("Tagged consult".into()), "mixed")
+        .unwrap();
+    let saved = store
+        .set_tags(
+            &session.id,
+            &["Privilege".into(), "consult".into(), " privilege ".into()],
+        )
+        .expect("set tags");
+    assert_eq!(saved, vec!["consult".to_string(), "privilege".to_string()]);
+    assert_eq!(store.list_tags(&session.id).expect("list tags"), saved);
+    let hits = store
+        .search_filtered(
+            &SearchFilter {
+                tag: Some("privilege".into()),
+                ..Default::default()
+            },
+            20,
+        )
+        .expect("tag filter");
+    assert!(
+        hits.iter().any(|h| h.session_id == session.id),
+        "tagged session must be found"
+    );
 }

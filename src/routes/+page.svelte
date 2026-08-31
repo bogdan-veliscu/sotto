@@ -10,6 +10,11 @@
   let engines = $state<Engine[]>([]);
   let selected = $state<SessionDetail | null>(null);
   let query = $state('');
+  let titleFilter = $state('');
+  let fromDay = $state('');
+  let toDay = $state('');
+  let tagFilter = $state('');
+  let tagDraft = $state('');
   let hits = $state<SearchHit[]>([]);
   let err = $state('');
   let liveId = $state<string | null>(null);
@@ -37,6 +42,7 @@
   async function openSession(id: string) {
     selected = await api.session(id);
     titleDraft = selected.session.title;
+    tagDraft = selected.tags.join(', ');
   }
 
   async function boot() {
@@ -104,12 +110,34 @@
     await refresh();
   }
 
+  function dayBound(iso: string, end: boolean): string | undefined {
+    if (!iso) return undefined;
+    const suffix = end ? 'T23:59:59' : 'T00:00:00';
+    const ms = new Date(`${iso}${suffix}`).getTime();
+    if (Number.isNaN(ms)) return undefined;
+    return String(Math.floor(ms / 1000));
+  }
+
   async function runSearch() {
-    if (!query.trim()) {
+    const filters = {
+      title: titleFilter.trim() || undefined,
+      createdFrom: dayBound(fromDay, false),
+      createdTo: dayBound(toDay, true),
+      tag: tagFilter.trim() || undefined,
+    };
+    if (!query.trim() && !filters.title && !filters.createdFrom && !filters.createdTo && !filters.tag) {
       hits = [];
       return;
     }
-    hits = await api.search(query);
+    hits = await api.search(query, filters);
+  }
+
+  async function saveTags() {
+    if (!selected) return;
+    const tags = tagDraft.split(',').map((t) => t.trim()).filter(Boolean);
+    const saved = await api.setTags(selected.session.id, tags);
+    selected = { ...selected, tags: saved };
+    tagDraft = saved.join(', ');
   }
 
   async function saveTitle() {
@@ -203,6 +231,12 @@
   <div class="body">
     <aside>
       <div class="aside-h">Sessions</div>
+      <div class="filters">
+        <input bind:value={titleFilter} placeholder="Title contains" />
+        <input type="date" bind:value={fromDay} aria-label="From date" />
+        <input type="date" bind:value={toDay} aria-label="To date" />
+        <input bind:value={tagFilter} placeholder="Tag" />
+      </div>
       {#if hits.length}
         <div class="hits">
           {#each hits as hit}
@@ -239,6 +273,11 @@
           {selected.session.status}
           {#if selected.audio_encrypted}· encrypted{/if}
           {#if selected.session.model_id}· {selected.session.model_id}{/if}
+          {#if selected.tags.length}· {selected.tags.join(', ')}{/if}
+        </div>
+        <div class="title-row tags">
+          <input class="tag-input" bind:value={tagDraft} placeholder="tags, comma separated" />
+          <button class="ghost" onclick={() => saveTags().catch((e) => (err = String(e)))}>Save tags</button>
         </div>
         {#if selected.summary}
           <section>
@@ -381,6 +420,10 @@
   .body { flex: 1; display: grid; grid-template-columns: 280px 1fr; min-height: 0; }
   aside { border-right: 1px solid var(--line); overflow: auto; padding: 12px; }
   .aside-h { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--mute); margin-bottom: 8px; }
+  .filters { display: grid; gap: 6px; margin-bottom: 12px; }
+  .filters input { width: 100%; background: var(--panel); border: 1px solid var(--line); color: var(--paper); padding: 6px 8px; font-size: 12px; }
+  .tag-input { flex: 1; background: var(--panel); border: 1px solid var(--line); color: var(--paper); padding: 6px 8px; }
+  .title-row.tags { margin-bottom: 16px; }
   .row { display: flex; flex-direction: column; gap: 4px; width: 100%; text-align: left; background: transparent; padding: 10px; border: 1px solid transparent; color: var(--paper); margin-bottom: 4px; }
   .row em { color: var(--mute); font-style: normal; font-size: 12px; font-family: 'IBM Plex Mono', monospace; }
   .row.active, .row:hover { background: var(--panel); border-color: var(--line); }

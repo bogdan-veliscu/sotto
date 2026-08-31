@@ -46,6 +46,7 @@ pub struct SessionDetail {
     pub segments: Vec<engines::TranscriptSegment>,
     pub audio_encrypted: bool,
     pub audio_path: Option<String>,
+    pub tags: Vec<String>,
 }
 
 pub struct Store {
@@ -152,6 +153,12 @@ impl Store {
             CREATE TABLE IF NOT EXISTS settings (
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS session_tags (
+                session_id TEXT NOT NULL,
+                tag TEXT NOT NULL,
+                PRIMARY KEY (session_id, tag),
+                FOREIGN KEY(session_id) REFERENCES sessions(id) ON DELETE CASCADE
             );
             CREATE INDEX IF NOT EXISTS idx_sessions_created ON sessions(created_at);
             CREATE INDEX IF NOT EXISTS idx_transcripts_session ON transcripts(session_id);
@@ -544,19 +551,87 @@ impl Store {
             segments,
             audio_encrypted: audio.as_ref().map(|a| a.1 == 1).unwrap_or(false),
             audio_path: audio.map(|a| a.0),
+            tags: self.list_tags(session_id)?,
         })
     }
 
     pub fn search(&self, q: &str, limit: i64) -> Result<Vec<SearchHit>> {
-        let trimmed = q.trim();
-        if trimmed.is_empty() {
+        self.search_filtered(
+            &crate::search::SearchFilter {
+                q: q.to_string(),
+                ..Default::default()
+            },
+            limit,
+        )
+    }
+
+    pub fn search_filtered(
+        &self,
+        filter: &crate::search::SearchFilter,
+        limit: i64,
+    ) -> Result<Vec<SearchHit>> {
+        let q = filter.q.trim().to_string();
+        let title = filter
+            .title
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+        let from = filter
+            .created_from
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+        let to = filter
+            .created_to
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+        let tag = filter.tag.as_deref().and_then(crate::search::normalize_tag);
+        let has_filter = title.is_some() || from.is_some() || to.is_some() || tag.is_some();
+        if q.is_empty() && !has_filter {
             return Ok(vec![]);
         }
-        let mut stmt = self.conn.prepare(
-            "SELECT session_id, title, snippet(transcript_fts, 2, '«', '»', '…', 16)
-             FROM transcript_fts WHERE transcript_fts MATCH ?1 LIMIT ?2",
-        )?;
-        let rows = stmt.query_map(params![trimmed, limit], |row| {
+
+        let mut sql = if q.is_empty() {
+            String::from("SELECT s.id, s.title, '' FROM sessions s WHERE 1=1")
+        } else {
+            String::from(
+                "SELECT f.session_id, f.title, snippet(transcript_fts, 2, '«', '»', '…', 16)
+                 FROM transcript_fts f
+                 JOIN sessions s ON s.id = f.session_id
+                 WHERE transcript_fts MATCH ?1",
+            )
+        };
+        let mut binds: Vec<String> = Vec::new();
+        if !q.is_empty() {
+            binds.push(q);
+        }
+        if let Some(title) = title {
+            sql.push_str(" AND LOWER(s.title) LIKE '%' || LOWER(?) || '%'");
+            binds.push(title);
+        }
+        if let Some(from) = from {
+            sql.push_str(" AND CAST(s.created_at AS INTEGER) >= CAST(? AS INTEGER)");
+            binds.push(from);
+        }
+        if let Some(to) = to {
+            sql.push_str(" AND CAST(s.created_at AS INTEGER) <= CAST(? AS INTEGER)");
+            binds.push(to);
+        }
+        if let Some(tag) = tag {
+            sql.push_str(
+                " AND EXISTS (SELECT 1 FROM session_tags t WHERE t.session_id = s.id AND t.tag = ?)",
+            );
+            binds.push(tag);
+        }
+        sql.push_str(" LIMIT ?");
+        binds.push(limit.to_string());
+
+        let mut stmt = self.conn.prepare(&sql)?;
+        let rows = stmt.query_map(rusqlite::params_from_iter(binds.iter()), |row| {
             Ok(SearchHit {
                 session_id: row.get(0)?,
                 title: row.get(1)?,
@@ -565,6 +640,47 @@ impl Store {
         })?;
         rows.collect::<rusqlite::Result<Vec<_>>>()
             .map_err(Into::into)
+    }
+
+    pub fn set_tags(&self, session_id: &str, tags: &[String]) -> Result<Vec<String>> {
+        let _ = self.get_session(session_id)?;
+        let normalized = crate::search::normalize_tags(tags);
+        self.conn.execute(
+            "DELETE FROM session_tags WHERE session_id = ?1",
+            params![session_id],
+        )?;
+        for tag in &normalized {
+            self.conn.execute(
+                "INSERT INTO session_tags(session_id, tag) VALUES (?1, ?2)",
+                params![session_id, tag],
+            )?;
+        }
+        Ok(normalized)
+    }
+
+    pub fn list_tags(&self, session_id: &str) -> Result<Vec<String>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT tag FROM session_tags WHERE session_id = ?1 ORDER BY tag",
+        )?;
+        let rows = stmt.query_map(params![session_id], |row| row.get(0))?;
+        rows.collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(Into::into)
+    }
+
+    pub fn set_created_at(&self, session_id: &str, created_at: &str) -> Result<()> {
+        let n = self.conn.execute(
+            "UPDATE sessions SET created_at = ?2 WHERE id = ?1",
+            params![session_id, created_at],
+        )?;
+        if n == 0 {
+            return Err(SottoError::app(
+                "SESSION_MISSING",
+                "That session does not exist.",
+                false,
+                "Refresh the list.",
+            ));
+        }
+        Ok(())
     }
 
     pub fn rename_session(&self, session_id: &str, title: &str) -> Result<Session> {
@@ -661,6 +777,7 @@ impl Store {
              DELETE FROM transcript_segments;
              DELETE FROM transcripts;
              DELETE FROM summaries;
+             DELETE FROM session_tags;
              DELETE FROM audio_assets;
              DELETE FROM sessions;",
         )?;

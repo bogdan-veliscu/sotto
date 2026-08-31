@@ -112,3 +112,19 @@ waves:
       - id: T14-export-settings
         summary: write markdown to a local path; privacy_settings default off
         contract_tests: [CT-export-file, CT-settings-privacy]
+  - id: 15
+    spec: search-filters
+    name: date-filter
+    depends_on: [14]
+    tasks:
+      - id: T15-date
+        summary: search_filtered inclusive created_at range
+        contract_tests: [CT-filter-date]
+  - id: 16
+    spec: search-filters
+    name: tags
+    depends_on: [15]
+    tasks:
+      - id: T16-tags
+        summary: tag replace/list and filter-by-tag
+        contract_tests: [CT-tag-roundtrip]
