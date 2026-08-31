@@ -80,3 +80,19 @@ waves:
       - id: T10-whisper-file
         summary: present invalid weights return ENGINE_MODEL_INVALID; no HTTP fetch
         contract_tests: [CT-whisper-weights-are-local]
+  - id: 11
+    spec: model-install
+    name: checksum
+    depends_on: [10]
+    tasks:
+      - id: T11-checksum
+        summary: install_bytes verifies SHA-256; mismatch leaves no weights file
+        contract_tests: [CT-checksum, CT-no-silent-cloud]
+  - id: 12
+    spec: model-install
+    name: parakeet-local
+    depends_on: [11]
+    tasks:
+      - id: T12-parakeet-local
+        summary: overlay ready after install; missing is ENGINE_NOT_INSTALLED; delete roundtrip
+        contract_tests: [CT-parakeet-local]

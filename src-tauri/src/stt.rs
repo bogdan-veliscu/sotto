@@ -91,6 +91,10 @@ pub fn transcribe_local(
         return transcribe_whisper(wav, cache_dir);
     }
 
+    if engine_id == crate::install::PARAKEET_ENGINE_ID {
+        return transcribe_parakeet(wav, cache_dir);
+    }
+
     // Non-fixture, non-whisper: consult the catalog. Cloud/api engines are
     // never run locally without explicit cloud mode (enforced upstream).
     let catalog = engines::catalog()?;
@@ -134,6 +138,41 @@ fn transcribe_whisper(wav: &[u8], cache_dir: &Path) -> Result<TranscriptResult> 
 
     // Valid local weights present.
     run_whisper_inference(WHISPER_ENGINE_ID, wav, &weights)
+}
+
+/// Transcribe with the local Parakeet weights. Local files only; never
+/// downloads and never silently selects cloud.
+///
+/// - weights absent → `ENGINE_NOT_INSTALLED`.
+/// - weights present → on-device Parakeet inference. That runtime is not
+///   compiled into this build, so we return `ENGINE_NOT_BUILT` (honest). We
+///   never replay the fixture transcript as if it were Parakeet output.
+fn transcribe_parakeet(_wav: &[u8], cache_dir: &Path) -> Result<TranscriptResult> {
+    let weights = crate::install::parakeet_weights_path(cache_dir);
+
+    // Local files only. A URL-shaped path is never fetched.
+    if looks_like_url(&weights) {
+        return Err(model_invalid());
+    }
+
+    if !weights.exists() {
+        return Err(SottoError::app(
+            "ENGINE_NOT_INSTALLED",
+            "Parakeet TDT weights are not installed on this Mac.",
+            true,
+            "Install the local model file. Sotto will not download it or use the cloud.",
+        ));
+    }
+
+    // Weights are on disk but the on-device Parakeet runtime is not compiled
+    // into this build. Never fall back to cloud; never download; never replay
+    // the fixture as if it were Parakeet.
+    Err(SottoError::app(
+        "ENGINE_NOT_BUILT",
+        "Local Parakeet inference is not compiled into this build.",
+        true,
+        "Build with the Parakeet runtime to transcribe with local weights.",
+    ))
 }
 
 #[cfg(feature = "whisper")]

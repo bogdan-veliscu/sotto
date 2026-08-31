@@ -181,6 +181,32 @@ pub fn sessions_delete(state: State<AppState>, session_id: String) -> Result<(),
 }
 
 #[tauri::command]
+pub fn model_install_file(
+    state: State<AppState>,
+    engine_id: String,
+    path: String,
+    expected_sha256: String,
+) -> Result<crate::install::InstallResult, ErrorBody> {
+    let bytes = std::fs::read(&path).map_err(crate::error::SottoError::from).map_err(map_err)?;
+    state
+        .store
+        .lock()
+        .unwrap()
+        .install_model_bytes(&engine_id, &bytes, &expected_sha256)
+        .map_err(map_err)
+}
+
+#[tauri::command]
+pub fn model_delete(state: State<AppState>, engine_id: String) -> Result<(), ErrorBody> {
+    state
+        .store
+        .lock()
+        .unwrap()
+        .delete_installed_model(&engine_id)
+        .map_err(map_err)
+}
+
+#[tauri::command]
 pub fn data_delete_all(state: State<AppState>) -> Result<(), ErrorBody> {
     state.store.lock().unwrap().delete_all().map_err(map_err)
 }

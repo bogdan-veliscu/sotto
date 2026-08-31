@@ -1,1 +1,1 @@
-{"current_wave": 10, "completed_nodes": ["SPEC-STORE", "SPEC-CAPTURE", "SPEC-SEARCH", "SPEC-LIVE", "SPEC-STT"], "notes": "PR 2 local-stt: Whisper local weights, no download in demo. Catalog JSON stays not-installed; runtime checks the ggml file."}
+{"current_wave": 12, "completed_nodes": ["SPEC-STORE", "SPEC-CAPTURE", "SPEC-SEARCH", "SPEC-LIVE", "SPEC-STT", "SPEC-INSTALL"], "notes": "PR 3 model-install: checksum, overlay, delete. No HTTP in demo. Parakeet runtime still ENGINE_NOT_BUILT."}

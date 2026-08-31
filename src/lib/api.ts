@@ -28,6 +28,13 @@ export const api = {
     call<Session>('sessions_rename', { sessionId, title }),
   exportMd: (sessionId: string) => call<string>('sessions_export', { sessionId }),
   deleteSession: (sessionId: string) => call<void>('sessions_delete', { sessionId }),
+  installModelFile: (engineId: string, path: string, expectedSha256: string) =>
+    call<{ engine_id: string; bytes_written: number; sha256: string }>('model_install_file', {
+      engineId,
+      path,
+      expectedSha256,
+    }),
+  deleteModel: (engineId: string) => call<void>('model_delete', { engineId }),
   deleteAll: () => call<void>('data_delete_all'),
 };
 

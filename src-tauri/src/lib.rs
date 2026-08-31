@@ -4,7 +4,9 @@ mod error;
 mod store;
 pub mod capture;
 pub mod stt;
+pub mod install;
 pub use error::SottoError;
+pub use engines::{catalog, Engine, InstallState};
 
 use std::path::Path;
 
@@ -100,6 +102,8 @@ pub fn run() {
             commands::sessions_rename,
             commands::sessions_export,
             commands::sessions_delete,
+            commands::model_install_file,
+            commands::model_delete,
             commands::data_delete_all,
         ])
         .run(tauri::generate_context!())

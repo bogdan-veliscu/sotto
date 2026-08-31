@@ -4,7 +4,11 @@ use sotto_lib::capture::{
     record_sine, start_live, CaptureConfig, CaptureSource, ChunkedRecorder,
 };
 use sotto_lib::demo_pipeline;
+use sotto_lib::install::{
+    delete_model, install_bytes, overlay_catalog, parakeet_weights_path, PARAKEET_ENGINE_ID,
+};
 use sotto_lib::stt::{transcribe_local, whisper_weights_path, WHISPER_ENGINE_ID};
+use sotto_lib::{catalog, InstallState};
 use tempfile::tempdir;
 
 const FIXTURE_WAV: &[u8] = include_bytes!("../../fixtures/sessions/CONSULT-001.wav");
@@ -96,6 +100,76 @@ fn ct_whisper_weights_are_local() {
     fs::write(&path, b"not-a-ggml-model").unwrap();
     let err = transcribe_local(WHISPER_ENGINE_ID, FIXTURE_WAV, dir.path()).unwrap_err();
     assert_eq!(err.code(), "ENGINE_MODEL_INVALID");
+}
+
+const PARAKEET_BLOB: &[u8] = b"parakeet-test-blob";
+const PARAKEET_SHA256: &str = "0b73fc4fa437d2d3c146f9aa3dbf7f3b538e130ba3d0aa69668a0cc8995729b9";
+
+#[test]
+fn ct_checksum() {
+    let dir = tempdir().unwrap();
+    let err = install_bytes(
+        PARAKEET_ENGINE_ID,
+        dir.path(),
+        PARAKEET_BLOB,
+        "deadbeef",
+    )
+    .unwrap_err();
+    assert_eq!(err.code(), "CHECKSUM_MISMATCH");
+    assert!(
+        !parakeet_weights_path(dir.path()).exists(),
+        "failed checksum must not leave weights on disk"
+    );
+
+    let result = install_bytes(
+        PARAKEET_ENGINE_ID,
+        dir.path(),
+        PARAKEET_BLOB,
+        PARAKEET_SHA256,
+    )
+    .expect("matching checksum");
+    assert_eq!(result.sha256, PARAKEET_SHA256);
+    assert!(parakeet_weights_path(dir.path()).exists());
+}
+
+#[test]
+fn ct_parakeet_local() {
+    let dir = tempdir().unwrap();
+    let missing = transcribe_local(PARAKEET_ENGINE_ID, FIXTURE_WAV, dir.path()).unwrap_err();
+    assert_eq!(missing.code(), "ENGINE_NOT_INSTALLED");
+
+    install_bytes(
+        PARAKEET_ENGINE_ID,
+        dir.path(),
+        PARAKEET_BLOB,
+        PARAKEET_SHA256,
+    )
+    .expect("install");
+
+    let engines = overlay_catalog(catalog().expect("catalog"), dir.path());
+    let parakeet = engines
+        .iter()
+        .find(|e| e.id == PARAKEET_ENGINE_ID)
+        .expect("parakeet in catalog");
+    assert_eq!(parakeet.install_state, InstallState::Ready);
+
+    let after = transcribe_local(PARAKEET_ENGINE_ID, FIXTURE_WAV, dir.path());
+    match after {
+        Ok(result) => assert_eq!(result.engine_id, PARAKEET_ENGINE_ID),
+        Err(err) => {
+            assert_ne!(err.code(), "ENGINE_NOT_INSTALLED");
+            assert_ne!(err.code(), "CLOUD_DISABLED");
+        }
+    }
+
+    delete_model(PARAKEET_ENGINE_ID, dir.path()).expect("delete");
+    assert!(!parakeet_weights_path(dir.path()).exists());
+    let engines = overlay_catalog(catalog().expect("catalog"), dir.path());
+    let parakeet = engines
+        .iter()
+        .find(|e| e.id == PARAKEET_ENGINE_ID)
+        .expect("parakeet in catalog");
+    assert_eq!(parakeet.install_state, InstallState::NotInstalled);
 }
 
 #[test]

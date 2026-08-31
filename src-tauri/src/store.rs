@@ -209,7 +209,23 @@ impl Store {
     }
 
     pub fn list_engines(&self) -> Result<Vec<Engine>> {
-        engines::catalog()
+        Ok(crate::install::overlay_catalog(
+            engines::catalog()?,
+            &self.data_dir,
+        ))
+    }
+
+    pub fn install_model_bytes(
+        &self,
+        engine_id: &str,
+        bytes: &[u8],
+        expected_sha256: &str,
+    ) -> Result<crate::install::InstallResult> {
+        crate::install::install_bytes(engine_id, &self.data_dir, bytes, expected_sha256)
+    }
+
+    pub fn delete_installed_model(&self, engine_id: &str) -> Result<()> {
+        crate::install::delete_model(engine_id, &self.data_dir)
     }
 
     pub fn create_session(&self, title: Option<String>, source: &str) -> Result<Session> {
