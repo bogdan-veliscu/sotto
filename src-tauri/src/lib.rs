@@ -4,7 +4,9 @@ mod error;
 mod store;
 pub mod capture;
 pub mod stt;
+pub mod install;
 pub use error::SottoError;
+pub use engines::{catalog, Engine, InstallState};
 
 use std::path::Path;
 

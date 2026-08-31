@@ -130,6 +130,23 @@
     {"id": "SPEC-SEARCH", "type": "spec", "kiro_name": "search-notes", "wave": [5, 6]},
     {"id": "SPEC-LIVE", "type": "spec", "kiro_name": "live-capture", "wave": [7, 8]},
     {"id": "SPEC-STT", "type": "spec", "kiro_name": "local-stt", "wave": [9, 10]},
+    {
+      "id": "INV-CHECKSUM",
+      "type": "invariant",
+      "severity": "CRITICAL",
+      "control_id": "CONTROL_CHECKSUM",
+      "statement": "A model payload that fails SHA-256 is rejected and not kept on disk.",
+      "ears": "WHEN install_bytes sees a digest mismatch, THE SYSTEM SHALL return CHECKSUM_MISMATCH and SHALL NOT leave weights."
+    },
+    {
+      "id": "INV-PARAKEET-LOCAL",
+      "type": "invariant",
+      "severity": "CRITICAL",
+      "control_id": "CONTROL_PARAKEET_LOCAL",
+      "statement": "Parakeet is a local file plus overlay, never cloud, never silent fixture.",
+      "ears": "WHEN Parakeet weights are missing, THE SYSTEM SHALL return ENGINE_NOT_INSTALLED; WHEN they are checksum-valid, overlay SHALL be ready."
+    },
+    {"id": "SPEC-INSTALL", "type": "spec", "kiro_name": "model-install", "wave": [11, 12]},
     {"id": "CT-no-cloud-default", "type": "contract_test", "path": "tests/contract/test_catalog.py"},
     {"id": "CT-no-silent-cloud", "type": "contract_test", "path": "src-tauri/src/engines.rs"},
     {"id": "CT-consent-before-record", "type": "contract_test", "path": "src-tauri/src/store.rs"},
@@ -144,7 +161,9 @@
     {"id": "CT-mic-unsupported-is-recoverable", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
     {"id": "CT-whisper-local-only", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
     {"id": "CT-demo-no-download", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
-    {"id": "CT-whisper-weights-are-local", "type": "contract_test", "path": "src-tauri/tests/contract.rs"}
+    {"id": "CT-whisper-weights-are-local", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {"id": "CT-checksum", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {"id": "CT-parakeet-local", "type": "contract_test", "path": "src-tauri/tests/contract.rs"}
   ],
   "edges": [
     {"from": "AudioAsset", "to": "Session", "rel": "REFERENCES"},
@@ -178,6 +197,11 @@
     {"from": "INV-WHISPER-WEIGHTS-LOCAL", "to": "CT-whisper-weights-are-local", "rel": "ENFORCED_BY"},
     {"from": "SPEC-STT", "to": "CT-whisper-local-only", "rel": "COVERS"},
     {"from": "SPEC-STT", "to": "CT-demo-no-download", "rel": "COVERS"},
-    {"from": "SPEC-STT", "to": "CT-whisper-weights-are-local", "rel": "COVERS"}
+    {"from": "SPEC-STT", "to": "CT-whisper-weights-are-local", "rel": "COVERS"},
+    {"from": "INV-CHECKSUM", "to": "CT-checksum", "rel": "ENFORCED_BY"},
+    {"from": "INV-PARAKEET-LOCAL", "to": "CT-parakeet-local", "rel": "ENFORCED_BY"},
+    {"from": "SPEC-INSTALL", "to": "CT-checksum", "rel": "COVERS"},
+    {"from": "SPEC-INSTALL", "to": "CT-parakeet-local", "rel": "COVERS"},
+    {"from": "SPEC-INSTALL", "to": "CT-no-silent-cloud", "rel": "COVERS"}
   ]
 }
