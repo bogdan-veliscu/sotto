@@ -1,0 +1,52 @@
+{
+  "engines": [
+    {
+      "id": "fixture-replay",
+      "vendor": "sotto",
+      "name": "Fixture replay",
+      "version": "1.0.0",
+      "mode": "local",
+      "supported_languages": ["en"],
+      "supports_timestamps": true,
+      "supports_streaming": false,
+      "requires_gpu": false,
+      "estimated_speed": "instant",
+      "estimated_accuracy": "locked golden transcript",
+      "install_state": "ready",
+      "disk_size_mb": 0,
+      "notes": "Offline demo engine. Does not call the network. Always available."
+    },
+    {
+      "id": "parakeet-tdt-0.6b-v3",
+      "vendor": "NVIDIA",
+      "name": "Parakeet TDT 0.6B v3",
+      "version": "0.6b-v3",
+      "mode": "local",
+      "supported_languages": ["en", "es", "fr", "de", "it", "pt", "nl", "pl", "ja", "zh"],
+      "supports_timestamps": true,
+      "supports_streaming": false,
+      "requires_gpu": false,
+      "estimated_speed": "fast on Apple Silicon",
+      "estimated_accuracy": "strong multilingual local default (planned)",
+      "install_state": "not-installed",
+      "disk_size_mb": 1200,
+      "notes": "Planned default local model. Not downloaded in wave 1. Install is user-initiated."
+    },
+    {
+      "id": "whisper-large-v3-turbo",
+      "vendor": "OpenAI",
+      "name": "Whisper Large-v3 Turbo",
+      "version": "large-v3-turbo",
+      "mode": "local",
+      "supported_languages": ["multilingual"],
+      "supports_timestamps": true,
+      "supports_streaming": false,
+      "requires_gpu": false,
+      "estimated_speed": "slower than Parakeet",
+      "estimated_accuracy": "robust multilingual fallback (planned)",
+      "install_state": "not-installed",
+      "disk_size_mb": 1600,
+      "notes": "Planned compatibility baseline. Local weights only. Not a cloud API."
+    }
+  ]
+}

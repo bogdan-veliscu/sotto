@@ -1,0 +1,40 @@
+[package]
+name = "sotto"
+version = "0.1.0"
+description = "Local-first meeting recorder. No bot. Audio stays on this Mac."
+authors = ["Bogdan Veliscu"]
+edition = "2021"
+license = "MIT"
+default-run = "sotto"
+
+[lib]
+name = "sotto_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "sotto"
+path = "src/main.rs"
+
+[[bin]]
+name = "sotto-demo"
+path = "src/bin/demo.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rusqlite = { version = "0.32", features = ["bundled"] }
+aes-gcm = "0.10"
+rand = "0.8"
+sha2 = "0.10"
+hex = "0.4"
+uuid = { version = "1", features = ["v4", "serde"] }
+thiserror = "2"
+directories = "5"
+
+[dev-dependencies]
+tempfile = "3"

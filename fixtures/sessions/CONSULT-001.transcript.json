@@ -1,0 +1,35 @@
+{
+  "raw_text": "This is a privileged consult. We will not send the recording to a third-party note taker. Follow up with the client on the engagement letter. Privilege holds unless they waive it.",
+  "cleaned_text": "This is a privileged consult. We will not send the recording to a third-party note taker. Follow up with the client on the engagement letter. Privilege holds unless they waive it.",
+  "language": "en",
+  "segments": [
+    {
+      "start_ms": 0,
+      "end_ms": 3200,
+      "text": "This is a privileged consult.",
+      "confidence": 0.99
+    },
+    {
+      "start_ms": 3200,
+      "end_ms": 7200,
+      "text": "We will not send the recording to a third-party note taker.",
+      "confidence": 0.99
+    },
+    {
+      "start_ms": 7200,
+      "end_ms": 11000,
+      "text": "Follow up with the client on the engagement letter.",
+      "confidence": 0.99
+    },
+    {
+      "start_ms": 11000,
+      "end_ms": 14500,
+      "text": "Privilege holds unless they waive it.",
+      "confidence": 0.99
+    }
+  ],
+  "summary_text": "Privileged client consult. Recording stays local. Next step is the engagement letter.",
+  "action_items": "- Follow up with the client on the engagement letter.",
+  "key_points": "- Conversation is privileged.\n- No third-party note taker.\n- Privilege holds unless waived.",
+  "engine_id": "fixture-replay"
+}

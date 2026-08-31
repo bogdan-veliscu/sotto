@@ -1,0 +1,50 @@
+# Implementation DAG. Do not skip waves.
+
+waves:
+  - id: 1
+    spec: session-store
+    name: scaffold
+    tasks:
+      - id: T1-scaffold
+        summary: Tauri 2 + SvelteKit shell, Store, default private settings, public docs
+        contract_tests: [CT-no-cloud-default, CT-fixtures-lock]
+  - id: 2
+    spec: session-store
+    name: engine-policy
+    depends_on: [1]
+    tasks:
+      - id: T2-engines
+        summary: Catalog + resolve_engine never silently selects cloud
+        contract_tests: [CT-no-silent-cloud]
+  - id: 3
+    spec: capture-consent
+    name: consent-gate
+    depends_on: [2]
+    tasks:
+      - id: T3-consent
+        summary: recorder.start requires acknowledged consent
+        contract_tests: [CT-consent-before-record]
+  - id: 4
+    spec: capture-consent
+    name: encrypt-audio
+    depends_on: [3]
+    tasks:
+      - id: T4-crypto
+        summary: Finalize writes AES-GCM ciphertext, not a WAV
+        contract_tests: [CT-audio-encrypted]
+  - id: 5
+    spec: search-notes
+    name: fts-export
+    depends_on: [4]
+    tasks:
+      - id: T5-fts
+        summary: Fixture transcription, FTS5 search, markdown export
+        contract_tests: [CT-fts-search]
+  - id: 6
+    spec: search-notes
+    name: demo-path
+    depends_on: [5]
+    tasks:
+      - id: T6-demo
+        summary: make demo / make contract / delete-all
+        contract_tests: [CT-delete-all]

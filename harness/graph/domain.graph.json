@@ -1,0 +1,93 @@
+{
+  "version": 1,
+  "nodes": [
+    {"id": "Session", "type": "entity", "attrs": ["id", "title", "status", "consent_state", "source"]},
+    {"id": "AudioAsset", "type": "entity", "attrs": ["id", "session_id", "file_path", "encrypted", "checksum"]},
+    {"id": "Transcript", "type": "entity", "attrs": ["id", "session_id", "raw_text", "status"]},
+    {"id": "Engine", "type": "entity", "attrs": ["id", "mode", "install_state"]},
+    {
+      "id": "INV-NO-CLOUD-DEFAULT",
+      "type": "invariant",
+      "severity": "CRITICAL",
+      "control_id": "CONTROL_NO_CLOUD_DEFAULT",
+      "statement": "A fresh install never enables cloud STT or telemetry.",
+      "ears": "WHEN the local store is created, THE SYSTEM SHALL set cloud_mode to off and telemetry to off."
+    },
+    {
+      "id": "INV-NO-SILENT-CLOUD",
+      "type": "invariant",
+      "severity": "CRITICAL",
+      "control_id": "CONTROL_NO_SILENT_CLOUD",
+      "statement": "Engine fallback never selects cloud unless the user enabled it.",
+      "ears": "WHEN the selected engine is unavailable, THE SYSTEM SHALL fall back only to a ready local engine."
+    },
+    {
+      "id": "INV-CONSENT-BEFORE-RECORD",
+      "type": "invariant",
+      "severity": "CRITICAL",
+      "control_id": "CONTROL_CONSENT",
+      "statement": "Recording cannot start until the disclosure is acknowledged.",
+      "ears": "WHEN recorder.start runs, THE SYSTEM SHALL require consent_state acknowledged."
+    },
+    {
+      "id": "INV-AUDIO-ENCRYPTED",
+      "type": "invariant",
+      "severity": "CRITICAL",
+      "control_id": "CONTROL_AUDIO_AT_REST",
+      "statement": "Finalized audio on disk is ciphertext, not a WAV.",
+      "ears": "WHEN audio is finalized, THE SYSTEM SHALL write a file whose first bytes are not RIFF/WAVE."
+    },
+    {
+      "id": "INV-FTS-SEARCH",
+      "type": "invariant",
+      "severity": "HIGH",
+      "control_id": "CONTROL_LOCAL_SEARCH",
+      "statement": "Stored transcript text is locally searchable.",
+      "ears": "WHEN a transcript is stored, THE SYSTEM SHALL return it from search.query for a distinctive term."
+    },
+    {
+      "id": "INV-DELETE-ALL",
+      "type": "invariant",
+      "severity": "HIGH",
+      "control_id": "CONTROL_DELETE_ALL",
+      "statement": "Delete-all removes sessions, FTS rows, and audio files.",
+      "ears": "WHEN delete_all runs, THE SYSTEM SHALL make prior transcript text unsearchable."
+    },
+    {
+      "id": "INV-FIXTURE-LOCK",
+      "type": "invariant",
+      "severity": "HIGH",
+      "control_id": "CONTROL_FIXTURE_LOCK",
+      "statement": "Golden fixtures are content-addressed.",
+      "ears": "WHEN fixtures are validated, THE SYSTEM SHALL verify SHA-256 digests against harness/graph/fixture-lock.json."
+    },
+    {"id": "SPEC-STORE", "type": "spec", "kiro_name": "session-store", "wave": [1, 2]},
+    {"id": "SPEC-CAPTURE", "type": "spec", "kiro_name": "capture-consent", "wave": [3, 4]},
+    {"id": "SPEC-SEARCH", "type": "spec", "kiro_name": "search-notes", "wave": [5, 6]},
+    {"id": "CT-no-cloud-default", "type": "contract_test", "path": "tests/contract/test_catalog.py"},
+    {"id": "CT-no-silent-cloud", "type": "contract_test", "path": "src-tauri/src/engines.rs"},
+    {"id": "CT-consent-before-record", "type": "contract_test", "path": "src-tauri/src/store.rs"},
+    {"id": "CT-audio-encrypted", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {"id": "CT-fts-search", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {"id": "CT-delete-all", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {"id": "CT-fixtures-lock", "type": "contract_test", "path": "tests/contract/test_fixtures.py"}
+  ],
+  "edges": [
+    {"from": "AudioAsset", "to": "Session", "rel": "REFERENCES"},
+    {"from": "Transcript", "to": "Session", "rel": "REFERENCES"},
+    {"from": "INV-NO-CLOUD-DEFAULT", "to": "CT-no-cloud-default", "rel": "ENFORCED_BY"},
+    {"from": "INV-NO-SILENT-CLOUD", "to": "CT-no-silent-cloud", "rel": "ENFORCED_BY"},
+    {"from": "INV-CONSENT-BEFORE-RECORD", "to": "CT-consent-before-record", "rel": "ENFORCED_BY"},
+    {"from": "INV-AUDIO-ENCRYPTED", "to": "CT-audio-encrypted", "rel": "ENFORCED_BY"},
+    {"from": "INV-FTS-SEARCH", "to": "CT-fts-search", "rel": "ENFORCED_BY"},
+    {"from": "INV-DELETE-ALL", "to": "CT-delete-all", "rel": "ENFORCED_BY"},
+    {"from": "INV-FIXTURE-LOCK", "to": "CT-fixtures-lock", "rel": "ENFORCED_BY"},
+    {"from": "SPEC-STORE", "to": "CT-no-cloud-default", "rel": "COVERS"},
+    {"from": "SPEC-STORE", "to": "CT-fixtures-lock", "rel": "COVERS"},
+    {"from": "SPEC-STORE", "to": "CT-no-silent-cloud", "rel": "COVERS"},
+    {"from": "SPEC-CAPTURE", "to": "CT-consent-before-record", "rel": "COVERS"},
+    {"from": "SPEC-CAPTURE", "to": "CT-audio-encrypted", "rel": "COVERS"},
+    {"from": "SPEC-SEARCH", "to": "CT-fts-search", "rel": "COVERS"},
+    {"from": "SPEC-SEARCH", "to": "CT-delete-all", "rel": "COVERS"}
+  ]
+}

@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Python deps
+        run: python3 -m pip install pytest
+      - name: Graph + Python contracts
+        run: make graph && python3 -m pytest tests/contract -q --tb=short
+      - name: Rust contracts
+        run: cargo test --manifest-path src-tauri/Cargo.toml --lib --test contract
+      - name: Demo
+        run: cargo run --manifest-path src-tauri/Cargo.toml --quiet --bin sotto-demo
+      - name: UI check
+        run: npm ci && npm run check

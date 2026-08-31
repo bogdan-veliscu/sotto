@@ -1,0 +1,22 @@
+name: Feature
+description: A wave-sized change
+labels: [enhancement]
+body:
+  - type: dropdown
+    id: wave
+    attributes:
+      label: Which spec
+      options:
+        - session-store
+        - capture-consent
+        - search-notes
+        - new invariant (open discussion first)
+    validations:
+      required: true
+  - type: textarea
+    id: ears
+    attributes:
+      label: EARS
+      description: WHEN … THE SYSTEM SHALL …
+    validations:
+      required: true

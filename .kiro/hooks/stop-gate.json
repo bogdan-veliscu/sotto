@@ -1,0 +1,13 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "stop-wave-reminder",
+      "trigger": "Stop",
+      "action": {
+        "type": "agent",
+        "prompt": "Before you stop: fixtures unchanged, make graph green, do not claim a wave complete unless its contract tests pass, no cloud STT by default, no transcript logging. If tasks.md still has unchecked required tasks, say so."
+      }
+    }
+  ]
+}

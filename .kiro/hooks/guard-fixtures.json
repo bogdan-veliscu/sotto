@@ -1,0 +1,16 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "guard-golden-fixtures",
+      "description": "Block writes to content-addressed fixtures and the lockfile.",
+      "trigger": "PreToolUse",
+      "matcher": "fsWrite|fs_write|write|edit|strReplace",
+      "action": {
+        "type": "command",
+        "command": "python3 harness/scripts/guard_fixtures.py"
+      },
+      "timeout": 15
+    }
+  ]
+}

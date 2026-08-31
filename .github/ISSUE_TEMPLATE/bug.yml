@@ -1,0 +1,18 @@
+name: Bug
+description: Something private or broken
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: Do not paste real meeting audio or transcripts. Use the golden fixture.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Repro
+      description: Commands you ran (`make demo`, `make dev`, …)
+    validations:
+      required: true

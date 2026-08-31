@@ -1,0 +1,10 @@
+[project]
+name = "sotto-harness"
+version = "0.1.0"
+description = "Graph validator and contract tests for Sotto. Not a runtime dependency of the app."
+requires-python = ">=3.12"
+dependencies = ["pytest>=8"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["contract: graph invariant tests"]

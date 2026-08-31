@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "files": {
+    "consent.md": {
+      "sha256": "60972d16fd0052792beb79267a8ab67dab1c39ee05c2fb3044677f3a7513de16",
+      "bytes": 449
+    },
+    "models.json": {
+      "sha256": "85c0f0f37250bc7a63e60e32c0918b2ac814cf710a5ff01884881768e86a70c2",
+      "bytes": 1779
+    },
+    "sessions/CONSULT-001.transcript.json": {
+      "sha256": "3e5d40891f950735d2ba06fe4f7147485a7dd7143912e6d3990cd4c769f6e5f8",
+      "bytes": 1353
+    },
+    "sessions/CONSULT-001.wav": {
+      "sha256": "7e28a155ec8ae58f8483a9f7dc8d8190173ded11c01b5f31e1c6f8ee629916c6",
+      "bytes": 12844
+    }
+  }
+}
