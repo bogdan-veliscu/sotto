@@ -388,7 +388,24 @@
           {privacy.cloud_mode === 'on' ? 'Turn off' : 'Turn on'}
         </button>
       </div>
-      <p class="fine">Retention: {privacy.retention_days} days (0 keeps everything until you delete).</p>
+      <div class="engine">
+        <strong>Retention</strong>
+        <span class="mono">{privacy.retention_days} days</span>
+        <p>0 keeps everything. A positive number deletes older sessions on this Mac.</p>
+        <input
+          class="tag-input"
+          type="number"
+          min="0"
+          bind:value={privacy.retention_days}
+          onchange={() =>
+            api
+              .settingsSet('retention_days', String(privacy.retention_days || '0'))
+              .then(() => api.applyRetention())
+              .then(() => api.privacy())
+              .then((p) => (privacy = p))
+              .catch((e) => (err = String(e)))}
+        />
+      </div>
       <button class="ghost" onclick={() => (settingsOpen = false)}>Close</button>
     </div>
   </div>

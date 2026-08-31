@@ -52,6 +52,8 @@ export const api = {
     }),
   deleteModel: (engineId: string) => call<void>('model_delete', { engineId }),
   deleteAll: () => call<void>('data_delete_all'),
+  keyReport: () => call<{ backend: string; key_len: number; fingerprint: string }>('key_report'),
+  applyRetention: () => call<number>('retention_apply'),
 };
 
 export function formatClock(ms: number): string {

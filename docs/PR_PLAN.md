@@ -13,8 +13,8 @@ Six PRs remain. One spec (or two DAG waves) per PR. Contract tests are the merge
 | **2** | `feat/local-whisper` | `local-stt` | Whisper Large-v3 Turbo **local weights**, batch transcribe. Never download inside `make demo`. **Shipped** (`#2`). | `CT-whisper-local-only`, `CT-demo-no-download` |
 | **3** | `feat/parakeet-install` | `model-install` | Parakeet TDT 0.6B v3 as selectable default. User-initiated checksummed install, overlay, delete. **Shipped** (`#3`). | `CT-checksum`, `CT-parakeet-local`, `CT-no-silent-cloud` (still) |
 | **4** | `feat/notes-export` | `notes-export` | Summary / action items / key points from the transcript (extractive local, no cloud LLM). Settings pane. Save-as markdown via dialog. **Shipped** (`#4`). | `CT-summary-from-transcript`, `CT-export-file`, `CT-settings-privacy` |
-| **5** | `feat/search-filters` | `search-filters` | Title, date range, tags. | `CT-filter-date`, `CT-tag-roundtrip` |
-| **6** | `feat/harden-keychain` | `harden` | Master key in macOS Keychain. Retention deletes. Permission copy. Crash-safe temps gone. | `CT-keychain`, `CT-retention` |
+| **5** | `feat/search-filters` | `search-filters` | Title, date range, tags. **Shipped** (`#5`). | `CT-filter-date`, `CT-tag-roundtrip` |
+| **6** | `feat/harden-keychain` | `harden` | Master key in macOS Keychain (file 0600 on Linux CI). Retention deletes. Crash-safe temps gone. | `CT-keychain`, `CT-retention` |
 
 ## Counts
 

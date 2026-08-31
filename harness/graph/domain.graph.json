@@ -189,6 +189,23 @@
       "ears": "WHEN set_tags runs, THE SYSTEM SHALL return the same tags from list_tags and from tag search."
     },
     {"id": "SPEC-FILTERS", "type": "spec", "kiro_name": "search-filters", "wave": [15, 16]},
+    {
+      "id": "INV-KEYCHAIN",
+      "type": "invariant",
+      "severity": "CRITICAL",
+      "control_id": "CONTROL_KEYSTORE",
+      "statement": "Master key is 32 bytes in Keychain on macOS or a 0600 file elsewhere.",
+      "ears": "WHEN the store opens, THE SYSTEM SHALL persist the master key via KeyStore and reuse it on reopen."
+    },
+    {
+      "id": "INV-RETENTION",
+      "type": "invariant",
+      "severity": "HIGH",
+      "control_id": "CONTROL_RETENTION",
+      "statement": "Positive retention_days deletes older sessions and their audio.",
+      "ears": "WHEN apply_retention runs with retention_days > 0, THE SYSTEM SHALL delete sessions older than that window."
+    },
+    {"id": "SPEC-HARDEN", "type": "spec", "kiro_name": "harden", "wave": [17, 18]},
     {"id": "CT-no-cloud-default", "type": "contract_test", "path": "tests/contract/test_catalog.py"},
     {"id": "CT-no-silent-cloud", "type": "contract_test", "path": "src-tauri/src/engines.rs"},
     {"id": "CT-consent-before-record", "type": "contract_test", "path": "src-tauri/src/store.rs"},
@@ -210,7 +227,9 @@
     {"id": "CT-export-file", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
     {"id": "CT-settings-privacy", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
     {"id": "CT-filter-date", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
-    {"id": "CT-tag-roundtrip", "type": "contract_test", "path": "src-tauri/tests/contract.rs"}
+    {"id": "CT-tag-roundtrip", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {"id": "CT-keychain", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {"id": "CT-retention", "type": "contract_test", "path": "src-tauri/tests/contract.rs"}
   ],
   "edges": [
     {"from": "AudioAsset", "to": "Session", "rel": "REFERENCES"},
@@ -259,6 +278,10 @@
     {"from": "INV-FILTER-DATE", "to": "CT-filter-date", "rel": "ENFORCED_BY"},
     {"from": "INV-TAG-ROUNDTRIP", "to": "CT-tag-roundtrip", "rel": "ENFORCED_BY"},
     {"from": "SPEC-FILTERS", "to": "CT-filter-date", "rel": "COVERS"},
-    {"from": "SPEC-FILTERS", "to": "CT-tag-roundtrip", "rel": "COVERS"}
+    {"from": "SPEC-FILTERS", "to": "CT-tag-roundtrip", "rel": "COVERS"},
+    {"from": "INV-KEYCHAIN", "to": "CT-keychain", "rel": "ENFORCED_BY"},
+    {"from": "INV-RETENTION", "to": "CT-retention", "rel": "ENFORCED_BY"},
+    {"from": "SPEC-HARDEN", "to": "CT-keychain", "rel": "COVERS"},
+    {"from": "SPEC-HARDEN", "to": "CT-retention", "rel": "COVERS"}
   ]
 }

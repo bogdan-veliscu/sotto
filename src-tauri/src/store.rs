@@ -9,7 +9,6 @@ use crate::crypto::{self, KEY_LEN};
 use crate::engines::{self, Engine, TranscriptResult, FIXTURE_ENGINE_ID};
 use crate::error::{Result, SottoError};
 
-const KEY_FILE: &str = "master.key";
 const DB_FILE: &str = "sotto.sqlite";
 const AUDIO_DIR: &str = "audio";
 
@@ -53,6 +52,7 @@ pub struct Store {
     conn: Connection,
     data_dir: PathBuf,
     master_key: [u8; KEY_LEN],
+    key_backend: String,
 }
 
 #[cfg_attr(not(feature = "desktop"), allow(dead_code))]
@@ -60,25 +60,7 @@ impl Store {
     pub fn open(data_dir: &Path) -> Result<Self> {
         fs::create_dir_all(data_dir)?;
         fs::create_dir_all(data_dir.join(AUDIO_DIR))?;
-        let key_path = data_dir.join(KEY_FILE);
-        let master_key = if key_path.exists() {
-            let bytes = fs::read(&key_path)?;
-            if bytes.len() != KEY_LEN {
-                return Err(SottoError::app(
-                    "KEY_INVALID",
-                    "Local master key is the wrong length.",
-                    false,
-                    "Do not replace master.key. Restore it with the audio files.",
-                ));
-            }
-            let mut key = [0u8; KEY_LEN];
-            key.copy_from_slice(&bytes);
-            key
-        } else {
-            let key = crypto::new_master_key();
-            fs::write(&key_path, key)?;
-            key
-        };
+        let (master_key, key_backend) = crate::keys::load_or_create(data_dir)?;
 
         let conn = Connection::open(data_dir.join(DB_FILE))?;
         conn.execute_batch("PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;")?;
@@ -86,9 +68,11 @@ impl Store {
             conn,
             data_dir: data_dir.to_path_buf(),
             master_key,
+            key_backend: key_backend.to_string(),
         };
         store.init_schema()?;
         store.ensure_defaults()?;
+        let _ = store.apply_retention();
         Ok(store)
     }
 
@@ -782,6 +766,67 @@ impl Store {
              DELETE FROM sessions;",
         )?;
         Ok(())
+    }
+
+    pub fn key_report(&self) -> Result<crate::keys::KeyReport> {
+        Ok(crate::keys::KeyReport {
+            backend: self.key_backend.clone(),
+            key_len: KEY_LEN,
+            fingerprint: crate::keys::fingerprint(&self.master_key),
+        })
+    }
+
+    pub fn apply_retention(&self) -> Result<u32> {
+        let days = self
+            .get_setting("retention_days")?
+            .and_then(|v| v.parse::<u64>().ok())
+            .unwrap_or(0);
+        if days == 0 {
+            return Ok(0);
+        }
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+        let cutoff = now.saturating_sub(days.saturating_mul(86_400));
+        let ids: Vec<String> = {
+            let mut stmt = self.conn.prepare(
+                "SELECT id FROM sessions WHERE CAST(created_at AS INTEGER) < ?1",
+            )?;
+            let rows = stmt.query_map(params![cutoff as i64], |row| row.get(0))?;
+            rows.collect::<rusqlite::Result<Vec<_>>>()?
+        };
+        let n = ids.len() as u32;
+        for id in ids {
+            self.delete_session(&id)?;
+        }
+        Ok(n)
+    }
+
+    pub fn scrub_plaintext_temps(&self) -> Result<u32> {
+        let audio = self.data_dir.join(AUDIO_DIR);
+        if !audio.exists() {
+            return Ok(0);
+        }
+        let mut removed = 0u32;
+        for entry in fs::read_dir(&audio)? {
+            let path = entry?.path();
+            if !path.is_file() {
+                continue;
+            }
+            let name = path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("")
+                .to_ascii_lowercase();
+            let looks_temp = name.ends_with(".wav") || name.ends_with(".tmp");
+            let bytes = fs::read(&path).unwrap_or_default();
+            if looks_temp || crypto::looks_like_wav(&bytes) {
+                fs::remove_file(&path)?;
+                removed += 1;
+            }
+        }
+        Ok(removed)
     }
 }
 

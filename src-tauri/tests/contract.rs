@@ -312,3 +312,66 @@ fn ct_tag_roundtrip() {
         "tagged session must be found"
     );
 }
+
+#[test]
+fn ct_keychain() {
+    let dir = tempdir().unwrap();
+    let store = Store::open(dir.path()).unwrap();
+    let report = store.key_report().expect("key_report");
+    assert_eq!(report.key_len, 32);
+    #[cfg(target_os = "macos")]
+    assert_eq!(report.backend, "keychain");
+    #[cfg(not(target_os = "macos"))]
+    {
+        assert_eq!(report.backend, "file");
+        let meta = fs::metadata(dir.path().join("master.key")).unwrap();
+        use std::os::unix::fs::PermissionsExt;
+        assert_eq!(meta.permissions().mode() & 0o777, 0o600);
+    }
+    let first = report.fingerprint.clone();
+    drop(store);
+    let again = Store::open(dir.path()).unwrap().key_report().expect("reopen");
+    assert_eq!(again.fingerprint, first);
+    let leak = dir.path().join("audio").join("leak.wav");
+    fs::create_dir_all(leak.parent().unwrap()).unwrap();
+    fs::write(&leak, b"RIFF\x24\x00\x00\x00WAVEfmt leftover").unwrap();
+    let n = Store::open(dir.path())
+        .unwrap()
+        .scrub_plaintext_temps()
+        .expect("scrub");
+    assert!(n >= 1);
+    assert!(!leak.exists(), "plaintext WAV leftover");
+}
+
+#[test]
+fn ct_retention() {
+    let dir = tempdir().unwrap();
+    let store = Store::open(dir.path()).unwrap();
+    let old = store
+        .create_session(Some("Old meeting".into()), "mixed")
+        .unwrap();
+    let keep = store
+        .create_session(Some("Keep meeting".into()), "mixed")
+        .unwrap();
+    store.acknowledge_consent(&old.id).unwrap();
+    store.acknowledge_consent(&keep.id).unwrap();
+    store.start_recording(&old.id).unwrap();
+    store.start_recording(&keep.id).unwrap();
+    store.finalize_with_wav(&old.id, FIXTURE_WAV).unwrap();
+    store.finalize_with_wav(&keep.id, FIXTURE_WAV).unwrap();
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    store
+        .set_created_at(&old.id, &(now.saturating_sub(10 * 86_400)).to_string())
+        .unwrap();
+    store
+        .set_created_at(&keep.id, &now.to_string())
+        .unwrap();
+    store.set_setting("retention_days", "7").unwrap();
+    let deleted = store.apply_retention().expect("retention");
+    assert!(deleted >= 1);
+    assert!(store.get_session(&old.id).is_err());
+    assert!(store.get_session(&keep.id).is_ok());
+}
