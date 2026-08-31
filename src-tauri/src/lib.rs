@@ -102,6 +102,8 @@ pub fn run() {
             commands::sessions_rename,
             commands::sessions_export,
             commands::sessions_delete,
+            commands::model_install_file,
+            commands::model_delete,
             commands::data_delete_all,
         ])
         .run(tauri::generate_context!())

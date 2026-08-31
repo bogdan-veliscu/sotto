@@ -289,7 +289,7 @@
           <p>{engine.notes}</p>
         </div>
       {/each}
-      <p class="fine">Parakeet and Whisper are catalogued, not downloaded. Fixture replay is the wave-1 engine.</p>
+      <p class="fine">Install is something you start. Demo never fetches weights. A failed checksum is discarded.</p>
       <button class="ghost" onclick={() => (settingsOpen = false)}>Close</button>
     </div>
   </div>

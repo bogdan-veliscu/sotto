@@ -1,1 +1,1 @@
-{"current_wave": 11, "completed_nodes": ["SPEC-STORE", "SPEC-CAPTURE", "SPEC-SEARCH", "SPEC-LIVE", "SPEC-STT"], "notes": "PR 2 merged. PR 3 model-install RED. User-initiated checksummed install. Demo still offline."}
+{"current_wave": 12, "completed_nodes": ["SPEC-STORE", "SPEC-CAPTURE", "SPEC-SEARCH", "SPEC-LIVE", "SPEC-STT", "SPEC-INSTALL"], "notes": "PR 3 model-install: checksum, overlay, delete. No HTTP in demo. Parakeet runtime still ENGINE_NOT_BUILT."}
