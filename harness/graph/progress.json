@@ -1,1 +1,1 @@
-{"current_wave": 8, "completed_nodes": ["SPEC-STORE", "SPEC-CAPTURE", "SPEC-SEARCH", "SPEC-LIVE"], "notes": "PR 1 live-capture green. Demo stays fixture. Hardware tap/mic still CAPTURE_UNSUPPORTED."}
+{"current_wave": 9, "completed_nodes": ["SPEC-STORE", "SPEC-CAPTURE", "SPEC-SEARCH", "SPEC-LIVE"], "notes": "PR 1 merged. PR 2 local-stt RED. Whisper weights not in git. Demo stays fixture."}

@@ -101,10 +101,35 @@
       "statement": "Missing system-audio backend is a recoverable error, not a cloud fallback.",
       "ears": "WHEN start_live(System) has no tap, THE SYSTEM SHALL return CAPTURE_UNSUPPORTED."
     },
+    {
+      "id": "INV-WHISPER-LOCAL-ONLY",
+      "type": "invariant",
+      "severity": "CRITICAL",
+      "control_id": "CONTROL_WHISPER_LOCAL",
+      "statement": "Whisper without local weights is ENGINE_NOT_INSTALLED, never cloud or silent fixture.",
+      "ears": "WHEN transcribe_local runs for whisper-large-v3-turbo without weights, THE SYSTEM SHALL return ENGINE_NOT_INSTALLED."
+    },
+    {
+      "id": "INV-DEMO-NO-DOWNLOAD",
+      "type": "invariant",
+      "severity": "CRITICAL",
+      "control_id": "CONTROL_DEMO_NO_DOWNLOAD",
+      "statement": "Demo path never downloads model weights.",
+      "ears": "WHEN demo_pipeline runs, THE SYSTEM SHALL keep network_calls at 0 and SHALL NOT write Whisper weights."
+    },
+    {
+      "id": "INV-WHISPER-WEIGHTS-LOCAL",
+      "type": "invariant",
+      "severity": "HIGH",
+      "control_id": "CONTROL_WHISPER_FILE",
+      "statement": "A present weights file is consulted locally; invalid ggml is not a network fetch.",
+      "ears": "WHEN whisper_weights_path exists but is not a valid model, THE SYSTEM SHALL return ENGINE_MODEL_INVALID."
+    },
     {"id": "SPEC-STORE", "type": "spec", "kiro_name": "session-store", "wave": [1, 2]},
     {"id": "SPEC-CAPTURE", "type": "spec", "kiro_name": "capture-consent", "wave": [3, 4]},
     {"id": "SPEC-SEARCH", "type": "spec", "kiro_name": "search-notes", "wave": [5, 6]},
     {"id": "SPEC-LIVE", "type": "spec", "kiro_name": "live-capture", "wave": [7, 8]},
+    {"id": "SPEC-STT", "type": "spec", "kiro_name": "local-stt", "wave": [9, 10]},
     {"id": "CT-no-cloud-default", "type": "contract_test", "path": "tests/contract/test_catalog.py"},
     {"id": "CT-no-silent-cloud", "type": "contract_test", "path": "src-tauri/src/engines.rs"},
     {"id": "CT-consent-before-record", "type": "contract_test", "path": "src-tauri/src/store.rs"},
@@ -116,7 +141,10 @@
     {"id": "CT-pause-resume", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
     {"id": "CT-crash-partial", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
     {"id": "CT-demo-still-offline", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
-    {"id": "CT-mic-unsupported-is-recoverable", "type": "contract_test", "path": "src-tauri/tests/contract.rs"}
+    {"id": "CT-mic-unsupported-is-recoverable", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {"id": "CT-whisper-local-only", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {"id": "CT-demo-no-download", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {"id": "CT-whisper-weights-are-local", "type": "contract_test", "path": "src-tauri/tests/contract.rs"}
   ],
   "edges": [
     {"from": "AudioAsset", "to": "Session", "rel": "REFERENCES"},
@@ -144,6 +172,12 @@
     {"from": "SPEC-LIVE", "to": "CT-pause-resume", "rel": "COVERS"},
     {"from": "SPEC-LIVE", "to": "CT-crash-partial", "rel": "COVERS"},
     {"from": "SPEC-LIVE", "to": "CT-demo-still-offline", "rel": "COVERS"},
-    {"from": "SPEC-LIVE", "to": "CT-mic-unsupported-is-recoverable", "rel": "COVERS"}
+    {"from": "SPEC-LIVE", "to": "CT-mic-unsupported-is-recoverable", "rel": "COVERS"},
+    {"from": "INV-WHISPER-LOCAL-ONLY", "to": "CT-whisper-local-only", "rel": "ENFORCED_BY"},
+    {"from": "INV-DEMO-NO-DOWNLOAD", "to": "CT-demo-no-download", "rel": "ENFORCED_BY"},
+    {"from": "INV-WHISPER-WEIGHTS-LOCAL", "to": "CT-whisper-weights-are-local", "rel": "ENFORCED_BY"},
+    {"from": "SPEC-STT", "to": "CT-whisper-local-only", "rel": "COVERS"},
+    {"from": "SPEC-STT", "to": "CT-demo-no-download", "rel": "COVERS"},
+    {"from": "SPEC-STT", "to": "CT-whisper-weights-are-local", "rel": "COVERS"}
   ]
 }

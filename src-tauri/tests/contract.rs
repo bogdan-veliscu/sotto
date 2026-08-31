@@ -4,7 +4,10 @@ use sotto_lib::capture::{
     record_sine, start_live, CaptureConfig, CaptureSource, ChunkedRecorder,
 };
 use sotto_lib::demo_pipeline;
+use sotto_lib::stt::{transcribe_local, whisper_weights_path, WHISPER_ENGINE_ID};
 use tempfile::tempdir;
+
+const FIXTURE_WAV: &[u8] = include_bytes!("../../fixtures/sessions/CONSULT-001.wav");
 
 fn is_wav(bytes: &[u8]) -> bool {
     bytes.len() >= 12 && bytes.starts_with(b"RIFF") && &bytes[8..12] == b"WAVE"
@@ -64,6 +67,35 @@ fn ct_mic_unsupported_is_recoverable() {
     let dir = tempdir().unwrap();
     let err = start_live(CaptureSource::System, dir.path()).unwrap_err();
     assert_eq!(err.code(), "CAPTURE_UNSUPPORTED");
+}
+
+#[test]
+fn ct_whisper_local_only() {
+    let dir = tempdir().unwrap();
+    let err = transcribe_local(WHISPER_ENGINE_ID, FIXTURE_WAV, dir.path()).unwrap_err();
+    assert_eq!(err.code(), "ENGINE_NOT_INSTALLED");
+}
+
+#[test]
+fn ct_demo_no_download() {
+    let dir = tempdir().unwrap();
+    let report = demo_pipeline(dir.path()).expect("demo");
+    assert_eq!(report.network_calls, 0);
+    assert_eq!(report.engine_id, "fixture-replay");
+    assert!(
+        !whisper_weights_path(dir.path()).exists(),
+        "demo must not write Whisper weights"
+    );
+}
+
+#[test]
+fn ct_whisper_weights_are_local() {
+    let dir = tempdir().unwrap();
+    let path = whisper_weights_path(dir.path());
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    fs::write(&path, b"not-a-ggml-model").unwrap();
+    let err = transcribe_local(WHISPER_ENGINE_ID, FIXTURE_WAV, dir.path()).unwrap_err();
+    assert_eq!(err.code(), "ENGINE_MODEL_INVALID");
 }
 
 #[test]
