@@ -3,6 +3,8 @@ mod crypto;
 mod engines;
 mod error;
 mod store;
+pub mod capture;
+pub use error::SottoError;
 
 use std::fs;
 use std::path::Path;

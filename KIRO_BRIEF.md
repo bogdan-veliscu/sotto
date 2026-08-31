@@ -4,11 +4,11 @@ You are Kiro CLI V3. Work only in this repository. Requirements-First. Do not us
 
 Sotto is a **local-first meeting recorder**. Headline: a meeting recorded on this Mac must never leave the device unless the user explicitly enables a cloud engine.
 
-## Current product slice (wave 1)
+## Current product slice
 
-Fixture capture → AES-GCM audio → fixture-replay transcript → FTS5 search → delete-all.
+PR 0 (shipped): fixture capture → AES-GCM → fixture-replay → FTS5 → delete-all.
 
-Live Core Audio taps and Parakeet/Whisper weights are specified, not this wave.
+**Current DAG wave: 7–8 (`live-capture`).** Implement `src-tauri/src/capture.rs`. Demo stays fixture. See `docs/PR_PLAN.md`.
 
 ## Commands
 

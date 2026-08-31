@@ -1,1 +1,1 @@
-{"current_wave": 6, "completed_nodes": ["SPEC-STORE", "SPEC-CAPTURE", "SPEC-SEARCH"], "notes": "Wave 1 public launch: fixture capture only. Core Audio taps and Parakeet weights are later waves."}
+{"current_wave": 7, "completed_nodes": ["SPEC-STORE", "SPEC-CAPTURE", "SPEC-SEARCH"], "notes": "PR 0 shipped. Wave 7-8 live-capture is RED. Kiro implements; demo stays fixture."}
