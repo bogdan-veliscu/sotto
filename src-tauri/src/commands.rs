@@ -23,7 +23,12 @@ pub struct StartArgs {
 
 #[tauri::command]
 pub fn settings_get(state: State<AppState>, key: String) -> Result<Option<String>, ErrorBody> {
-    state.store.lock().unwrap().get_setting(&key).map_err(map_err)
+    state
+        .store
+        .lock()
+        .unwrap()
+        .get_setting(&key)
+        .map_err(map_err)
 }
 
 #[tauri::command]
@@ -42,7 +47,10 @@ pub fn engines_list(state: State<AppState>) -> Result<Vec<Engine>, ErrorBody> {
 }
 
 #[tauri::command]
-pub fn sessions_list(state: State<AppState>, limit: Option<i64>) -> Result<Vec<Session>, ErrorBody> {
+pub fn sessions_list(
+    state: State<AppState>,
+    limit: Option<i64>,
+) -> Result<Vec<Session>, ErrorBody> {
     state
         .store
         .lock()
@@ -52,8 +60,16 @@ pub fn sessions_list(state: State<AppState>, limit: Option<i64>) -> Result<Vec<S
 }
 
 #[tauri::command]
-pub fn sessions_get(state: State<AppState>, session_id: String) -> Result<SessionDetail, ErrorBody> {
-    state.store.lock().unwrap().get_detail(&session_id).map_err(map_err)
+pub fn sessions_get(
+    state: State<AppState>,
+    session_id: String,
+) -> Result<SessionDetail, ErrorBody> {
+    state
+        .store
+        .lock()
+        .unwrap()
+        .get_detail(&session_id)
+        .map_err(map_err)
 }
 
 #[tauri::command]
@@ -171,6 +187,32 @@ pub fn sessions_export(state: State<AppState>, session_id: String) -> Result<Str
 }
 
 #[tauri::command]
+pub fn sessions_export_file(
+    state: State<AppState>,
+    session_id: String,
+    dest: String,
+) -> Result<(), ErrorBody> {
+    state
+        .store
+        .lock()
+        .unwrap()
+        .export_markdown_file(&session_id, std::path::Path::new(&dest))
+        .map_err(map_err)
+}
+
+#[tauri::command]
+pub fn privacy_settings(
+    state: State<AppState>,
+) -> Result<crate::notes::PrivacySettings, ErrorBody> {
+    state
+        .store
+        .lock()
+        .unwrap()
+        .privacy_settings()
+        .map_err(map_err)
+}
+
+#[tauri::command]
 pub fn sessions_delete(state: State<AppState>, session_id: String) -> Result<(), ErrorBody> {
     state
         .store
@@ -187,7 +229,9 @@ pub fn model_install_file(
     path: String,
     expected_sha256: String,
 ) -> Result<crate::install::InstallResult, ErrorBody> {
-    let bytes = std::fs::read(&path).map_err(crate::error::SottoError::from).map_err(map_err)?;
+    let bytes = std::fs::read(&path)
+        .map_err(crate::error::SottoError::from)
+        .map_err(map_err)?;
     state
         .store
         .lock()

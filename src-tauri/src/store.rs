@@ -344,7 +344,11 @@ impl Store {
         self.get_session(session_id)
     }
 
-    pub fn transcribe(&self, session_id: &str, requested_model: Option<String>) -> Result<SessionDetail> {
+    pub fn transcribe(
+        &self,
+        session_id: &str,
+        requested_model: Option<String>,
+    ) -> Result<SessionDetail> {
         let cloud = self.cloud_enabled()?;
         let catalog = engines::catalog()?;
         let requested = requested_model
@@ -409,6 +413,20 @@ impl Store {
                 params![sid, transcript_id, seg.start_ms, seg.end_ms, seg.text, seg.confidence],
             )?;
         }
+        let notes = if result.summary_text.trim().is_empty() {
+            let src = if result.cleaned_text.trim().is_empty() {
+                result.raw_text.as_str()
+            } else {
+                result.cleaned_text.as_str()
+            };
+            crate::notes::extract_notes(src)?
+        } else {
+            crate::notes::Notes {
+                summary: result.summary_text.clone(),
+                action_items: result.action_items.clone(),
+                key_points: result.key_points.clone(),
+            }
+        };
         let summary_id = format!("SUM-{}", &Uuid::new_v4().to_string()[..8].to_uppercase());
         self.conn.execute(
             "INSERT INTO summaries(id, session_id, summary_text, action_items, key_points, created_at)
@@ -416,9 +434,9 @@ impl Store {
             params![
                 summary_id,
                 session_id,
-                result.summary_text,
-                result.action_items,
-                result.key_points,
+                &notes.summary,
+                &notes.action_items,
+                &notes.key_points,
                 now
             ],
         )?;
@@ -430,7 +448,7 @@ impl Store {
         self.conn.execute(
             "INSERT INTO transcript_fts(session_id, title, transcript_text, summary_text)
              VALUES (?1, ?2, ?3, ?4)",
-            params![session_id, title, result.raw_text, result.summary_text],
+            params![session_id, title, result.raw_text, &notes.summary],
         )?;
         self.conn.execute(
             "UPDATE sessions SET status = 'transcribed', model_id = ?2, language = ?3 WHERE id = ?1",
@@ -446,7 +464,8 @@ impl Store {
              FROM sessions ORDER BY created_at DESC LIMIT ?1",
         )?;
         let rows = stmt.query_map(params![limit], row_to_session)?;
-        rows.collect::<rusqlite::Result<Vec<_>>>().map_err(Into::into)
+        rows.collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(Into::into)
     }
 
     pub fn get_session(&self, session_id: &str) -> Result<Session> {
@@ -544,7 +563,8 @@ impl Store {
                 snippet: row.get(2)?,
             })
         })?;
-        rows.collect::<rusqlite::Result<Vec<_>>>().map_err(Into::into)
+        rows.collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(Into::into)
     }
 
     pub fn rename_session(&self, session_id: &str, title: &str) -> Result<Session> {
@@ -574,6 +594,32 @@ impl Store {
         Ok(out)
     }
 
+    pub fn export_markdown_file(&self, session_id: &str, dest: &Path) -> Result<()> {
+        crate::notes::reject_remote_dest(dest)?;
+        let body = self.export_markdown(session_id)?;
+        if let Some(parent) = dest.parent() {
+            if !parent.as_os_str().is_empty() {
+                fs::create_dir_all(parent)?;
+            }
+        }
+        fs::write(dest, body)?;
+        Ok(())
+    }
+
+    pub fn privacy_settings(&self) -> Result<crate::notes::PrivacySettings> {
+        Ok(crate::notes::PrivacySettings {
+            telemetry: self
+                .get_setting("telemetry")?
+                .unwrap_or_else(|| "off".into()),
+            cloud_mode: self
+                .get_setting("cloud_mode")?
+                .unwrap_or_else(|| "off".into()),
+            retention_days: self
+                .get_setting("retention_days")?
+                .unwrap_or_else(|| "0".into()),
+        })
+    }
+
     pub fn audio_is_ciphertext(&self, session_id: &str) -> Result<bool> {
         let path: String = self.conn.query_row(
             "SELECT file_path FROM audio_assets WHERE session_id = ?1 LIMIT 1",
@@ -595,8 +641,10 @@ impl Store {
         for rel in paths {
             let _ = fs::remove_file(self.data_dir.join(rel));
         }
-        self.conn
-            .execute("DELETE FROM transcript_fts WHERE session_id = ?1", params![session_id])?;
+        self.conn.execute(
+            "DELETE FROM transcript_fts WHERE session_id = ?1",
+            params![session_id],
+        )?;
         self.conn
             .execute("DELETE FROM sessions WHERE id = ?1", params![session_id])?;
         Ok(())

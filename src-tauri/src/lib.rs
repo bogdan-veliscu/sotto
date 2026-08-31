@@ -1,18 +1,18 @@
+pub mod capture;
 mod crypto;
 mod engines;
 mod error;
-mod store;
-pub mod capture;
-pub mod stt;
 pub mod install;
-pub use error::SottoError;
+pub mod notes;
+mod store;
+pub mod stt;
 pub use engines::{catalog, Engine, InstallState};
+pub use error::SottoError;
+pub use store::Store;
 
 use std::path::Path;
 
 use serde::Serialize;
-
-use store::Store;
 
 #[cfg(feature = "desktop")]
 mod commands;
@@ -76,6 +76,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
             fs::create_dir_all(&dir)?;
@@ -101,6 +102,8 @@ pub fn run() {
             commands::search_query,
             commands::sessions_rename,
             commands::sessions_export,
+            commands::sessions_export_file,
+            commands::privacy_settings,
             commands::sessions_delete,
             commands::model_install_file,
             commands::model_delete,

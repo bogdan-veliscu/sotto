@@ -147,6 +147,31 @@
       "ears": "WHEN Parakeet weights are missing, THE SYSTEM SHALL return ENGINE_NOT_INSTALLED; WHEN they are checksum-valid, overlay SHALL be ready."
     },
     {"id": "SPEC-INSTALL", "type": "spec", "kiro_name": "model-install", "wave": [11, 12]},
+    {
+      "id": "INV-SUMMARY-FROM-TRANSCRIPT",
+      "type": "invariant",
+      "severity": "HIGH",
+      "control_id": "CONTROL_EXTRACTIVE_NOTES",
+      "statement": "Notes are derived locally from the transcript, never a cloud LLM.",
+      "ears": "WHEN extract_notes runs, THE SYSTEM SHALL keep distinctive transcript claims in the notes."
+    },
+    {
+      "id": "INV-EXPORT-FILE",
+      "type": "invariant",
+      "severity": "HIGH",
+      "control_id": "CONTROL_EXPORT_FILE",
+      "statement": "Export writes markdown to a local path.",
+      "ears": "WHEN export_markdown_file runs, THE SYSTEM SHALL write a file containing the transcript."
+    },
+    {
+      "id": "INV-SETTINGS-PRIVACY",
+      "type": "invariant",
+      "severity": "CRITICAL",
+      "control_id": "CONTROL_SETTINGS_PRIVACY",
+      "statement": "Privacy settings default to telemetry off and cloud off.",
+      "ears": "WHEN privacy_settings is read on a fresh store, THE SYSTEM SHALL report telemetry off and cloud_mode off."
+    },
+    {"id": "SPEC-NOTES", "type": "spec", "kiro_name": "notes-export", "wave": [13, 14]},
     {"id": "CT-no-cloud-default", "type": "contract_test", "path": "tests/contract/test_catalog.py"},
     {"id": "CT-no-silent-cloud", "type": "contract_test", "path": "src-tauri/src/engines.rs"},
     {"id": "CT-consent-before-record", "type": "contract_test", "path": "src-tauri/src/store.rs"},
@@ -163,7 +188,10 @@
     {"id": "CT-demo-no-download", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
     {"id": "CT-whisper-weights-are-local", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
     {"id": "CT-checksum", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
-    {"id": "CT-parakeet-local", "type": "contract_test", "path": "src-tauri/tests/contract.rs"}
+    {"id": "CT-parakeet-local", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {"id": "CT-summary-from-transcript", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {"id": "CT-export-file", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {"id": "CT-settings-privacy", "type": "contract_test", "path": "src-tauri/tests/contract.rs"}
   ],
   "edges": [
     {"from": "AudioAsset", "to": "Session", "rel": "REFERENCES"},
@@ -202,6 +230,12 @@
     {"from": "INV-PARAKEET-LOCAL", "to": "CT-parakeet-local", "rel": "ENFORCED_BY"},
     {"from": "SPEC-INSTALL", "to": "CT-checksum", "rel": "COVERS"},
     {"from": "SPEC-INSTALL", "to": "CT-parakeet-local", "rel": "COVERS"},
-    {"from": "SPEC-INSTALL", "to": "CT-no-silent-cloud", "rel": "COVERS"}
+    {"from": "SPEC-INSTALL", "to": "CT-no-silent-cloud", "rel": "COVERS"},
+    {"from": "INV-SUMMARY-FROM-TRANSCRIPT", "to": "CT-summary-from-transcript", "rel": "ENFORCED_BY"},
+    {"from": "INV-EXPORT-FILE", "to": "CT-export-file", "rel": "ENFORCED_BY"},
+    {"from": "INV-SETTINGS-PRIVACY", "to": "CT-settings-privacy", "rel": "ENFORCED_BY"},
+    {"from": "SPEC-NOTES", "to": "CT-summary-from-transcript", "rel": "COVERS"},
+    {"from": "SPEC-NOTES", "to": "CT-export-file", "rel": "COVERS"},
+    {"from": "SPEC-NOTES", "to": "CT-settings-privacy", "rel": "COVERS"}
   ]
 }

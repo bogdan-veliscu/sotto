@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { Engine, SearchHit, Session, SessionDetail } from './types';
+import type { Engine, PrivacySettings, SearchHit, Session, SessionDetail } from './types';
 
 export const isTauri = () =>
   typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
@@ -27,6 +27,9 @@ export const api = {
   rename: (sessionId: string, title: string) =>
     call<Session>('sessions_rename', { sessionId, title }),
   exportMd: (sessionId: string) => call<string>('sessions_export', { sessionId }),
+  exportFile: (sessionId: string, dest: string) =>
+    call<void>('sessions_export_file', { sessionId, dest }),
+  privacy: () => call<PrivacySettings>('privacy_settings'),
   deleteSession: (sessionId: string) => call<void>('sessions_delete', { sessionId }),
   installModelFile: (engineId: string, path: string, expectedSha256: string) =>
     call<{ engine_id: string; bytes_written: number; sha256: string }>('model_install_file', {

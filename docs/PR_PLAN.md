@@ -11,7 +11,7 @@ Six PRs remain. One spec (or two DAG waves) per PR. Contract tests are the merge
 | **0** | `main` | `session-store`, `capture-consent`, `search-notes` | Public desk. Fixture record → encrypt → search. | **Shipped** |
 | **1** | `feat/live-capture` | `live-capture` | Real capture pipeline: chunked WAV, pause/resume, crash recover, mic via CPAL. System-audio tap may return `CAPTURE_UNSUPPORTED`. **Shipped** (`#1`). | `CT-capture-wav`, `CT-pause-resume`, `CT-crash-partial`, `CT-demo-still-offline` |
 | **2** | `feat/local-whisper` | `local-stt` | Whisper Large-v3 Turbo **local weights**, batch transcribe. Never download inside `make demo`. **Shipped** (`#2`). | `CT-whisper-local-only`, `CT-demo-no-download` |
-| **3** | `feat/parakeet-install` | `model-install` | Parakeet TDT 0.6B v3 as selectable default. User-initiated download, checksum, progress, delete. | `CT-checksum`, `CT-parakeet-local`, `CT-no-silent-cloud` (still) |
+| **3** | `feat/parakeet-install` | `model-install` | Parakeet TDT 0.6B v3 as selectable default. User-initiated checksummed install, overlay, delete. **Shipped** (`#3`). | `CT-checksum`, `CT-parakeet-local`, `CT-no-silent-cloud` (still) |
 | **4** | `feat/notes-export` | `notes-export` | Summary / action items / key points from the transcript (extractive local, no cloud LLM). Settings pane. Save-as markdown via dialog. | `CT-summary-from-transcript`, `CT-export-file`, `CT-settings-privacy` |
 | **5** | `feat/search-filters` | `search-filters` | Title, date range, tags. | `CT-filter-date`, `CT-tag-roundtrip` |
 | **6** | `feat/harden-keychain` | `harden` | Master key in macOS Keychain. Retention deletes. Permission copy. Crash-safe temps gone. | `CT-keychain`, `CT-retention` |

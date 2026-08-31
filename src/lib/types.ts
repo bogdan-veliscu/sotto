@@ -50,3 +50,9 @@ export type Engine = {
   notes: string;
   supported_languages: string[];
 };
+
+export type PrivacySettings = {
+  telemetry: string;
+  cloud_mode: string;
+  retention_days: string;
+};

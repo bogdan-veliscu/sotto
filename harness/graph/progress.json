@@ -1,1 +1,1 @@
-{"current_wave": 12, "completed_nodes": ["SPEC-STORE", "SPEC-CAPTURE", "SPEC-SEARCH", "SPEC-LIVE", "SPEC-STT", "SPEC-INSTALL"], "notes": "PR 3 model-install: checksum, overlay, delete. No HTTP in demo. Parakeet runtime still ENGINE_NOT_BUILT."}
+{"current_wave": 14, "completed_nodes": ["SPEC-STORE", "SPEC-CAPTURE", "SPEC-SEARCH", "SPEC-LIVE", "SPEC-STT", "SPEC-INSTALL", "SPEC-NOTES"], "notes": "PR 4 notes-export GREEN. Extractive local notes, file export, privacy settings."}

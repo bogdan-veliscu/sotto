@@ -96,3 +96,19 @@ waves:
       - id: T12-parakeet-local
         summary: overlay ready after install; missing is ENGINE_NOT_INSTALLED; delete roundtrip
         contract_tests: [CT-parakeet-local]
+  - id: 13
+    spec: notes-export
+    name: extractive-notes
+    depends_on: [12]
+    tasks:
+      - id: T13-extract
+        summary: extract_notes derives summary and follow-ups locally from transcript text
+        contract_tests: [CT-summary-from-transcript]
+  - id: 14
+    spec: notes-export
+    name: export-settings
+    depends_on: [13]
+    tasks:
+      - id: T14-export-settings
+        summary: write markdown to a local path; privacy_settings default off
+        contract_tests: [CT-export-file, CT-settings-privacy]
