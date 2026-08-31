@@ -4,6 +4,7 @@ mod engines;
 mod error;
 pub mod install;
 pub mod notes;
+pub mod search;
 mod store;
 pub mod stt;
 pub use engines::{catalog, Engine, InstallState};

@@ -1,1 +1,1 @@
-{"current_wave": 14, "completed_nodes": ["SPEC-STORE", "SPEC-CAPTURE", "SPEC-SEARCH", "SPEC-LIVE", "SPEC-STT", "SPEC-INSTALL", "SPEC-NOTES"], "notes": "PR 4 notes-export GREEN. Extractive local notes, file export, privacy settings."}
+{"current_wave": 15, "completed_nodes": ["SPEC-STORE", "SPEC-CAPTURE", "SPEC-SEARCH", "SPEC-LIVE", "SPEC-STT", "SPEC-INSTALL", "SPEC-NOTES"], "notes": "PR 5 search-filters RED. Date range and tags."}

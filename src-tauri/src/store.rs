@@ -567,6 +567,46 @@ impl Store {
             .map_err(Into::into)
     }
 
+    pub fn search_filtered(
+        &self,
+        _filter: &crate::search::SearchFilter,
+        _limit: i64,
+    ) -> Result<Vec<SearchHit>> {
+        Err(SottoError::app(
+            "NOT_IMPLEMENTED",
+            "search filters are not implemented in this wave",
+            true,
+            "Wait for search-filters GREEN.",
+        ))
+    }
+
+    pub fn set_tags(&self, _session_id: &str, _tags: &[String]) -> Result<Vec<String>> {
+        Err(SottoError::app(
+            "NOT_IMPLEMENTED",
+            "tags are not implemented in this wave",
+            true,
+            "Wait for search-filters GREEN.",
+        ))
+    }
+
+    pub fn list_tags(&self, _session_id: &str) -> Result<Vec<String>> {
+        Err(SottoError::app(
+            "NOT_IMPLEMENTED",
+            "tags are not implemented in this wave",
+            true,
+            "Wait for search-filters GREEN.",
+        ))
+    }
+
+    pub fn set_created_at(&self, _session_id: &str, _created_at: &str) -> Result<()> {
+        Err(SottoError::app(
+            "NOT_IMPLEMENTED",
+            "set_created_at is not implemented in this wave",
+            true,
+            "Wait for search-filters GREEN.",
+        ))
+    }
+
     pub fn rename_session(&self, session_id: &str, title: &str) -> Result<Session> {
         self.conn.execute(
             "UPDATE sessions SET title = ?2 WHERE id = ?1",
