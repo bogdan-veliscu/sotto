@@ -128,3 +128,19 @@ waves:
       - id: T16-tags
         summary: tag replace/list and filter-by-tag
         contract_tests: [CT-tag-roundtrip]
+  - id: 17
+    spec: harden
+    name: keystore
+    depends_on: [16]
+    tasks:
+      - id: T17-keychain
+        summary: KeyStore file 0600 or macOS Keychain; same key on reopen
+        contract_tests: [CT-keychain]
+  - id: 18
+    spec: harden
+    name: retention
+    depends_on: [17]
+    tasks:
+      - id: T18-retention
+        summary: retention deletes old sessions; scrub plaintext WAV leftovers
+        contract_tests: [CT-retention]

@@ -3,6 +3,7 @@ mod crypto;
 mod engines;
 mod error;
 pub mod install;
+pub mod keys;
 pub mod notes;
 pub mod search;
 mod store;

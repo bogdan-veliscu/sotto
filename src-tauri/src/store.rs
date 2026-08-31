@@ -783,6 +783,33 @@ impl Store {
         )?;
         Ok(())
     }
+
+    pub fn key_report(&self) -> Result<crate::keys::KeyReport> {
+        Err(SottoError::app(
+            "NOT_IMPLEMENTED",
+            "key_report is not implemented in this wave",
+            true,
+            "Wait for harden GREEN.",
+        ))
+    }
+
+    pub fn apply_retention(&self) -> Result<u32> {
+        Err(SottoError::app(
+            "NOT_IMPLEMENTED",
+            "retention is not implemented in this wave",
+            true,
+            "Wait for harden GREEN.",
+        ))
+    }
+
+    pub fn scrub_plaintext_temps(&self) -> Result<u32> {
+        Err(SottoError::app(
+            "NOT_IMPLEMENTED",
+            "temp scrub is not implemented in this wave",
+            true,
+            "Wait for harden GREEN.",
+        ))
+    }
 }
 
 fn now_rfc3339() -> String {
