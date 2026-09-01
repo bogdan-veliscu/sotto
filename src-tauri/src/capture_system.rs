@@ -46,6 +46,17 @@ pub fn start_system_stream(
     rec: Arc<Mutex<ChunkedRecorder>>,
     target_rate: u32,
 ) -> Result<SystemTap> {
+    start_system_sink(target_rate, move |pcm| {
+        if let Ok(mut rec) = rec.lock() {
+            let _ = rec.write_pcm(pcm);
+        }
+    })
+}
+
+pub fn start_system_sink<F>(target_rate: u32, on_pcm: F) -> Result<SystemTap>
+where
+    F: Fn(&[i16]) + Send + Sync + 'static,
+{
     if !screen_recording_granted() {
         return Err(unsupported("Screen Recording is off"));
     }
@@ -73,9 +84,7 @@ pub fn start_system_stream(
             if pcm.is_empty() {
                 return;
             }
-            if let Ok(mut rec) = rec.lock() {
-                let _ = rec.write_pcm(&pcm);
-            }
+            on_pcm(&pcm);
         },
         SCStreamOutputType::Audio,
     );

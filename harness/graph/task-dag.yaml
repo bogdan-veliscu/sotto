@@ -240,3 +240,19 @@ waves:
       - id: T30-tap
         summary: start_live(System) never uses CONSULT-001; unsupported stays recoverable
         contract_tests: [CT-system-not-fixture]
+  - id: 31
+    spec: mixed-capture
+    name: no-fallback
+    depends_on: [30]
+    tasks:
+      - id: T31-no-fallback
+        summary: start_live(Mixed) fails unless both backends can open; never mic-only
+        contract_tests: [CT-mixed-not-mic-only]
+  - id: 32
+    spec: mixed-capture
+    name: mix-pcm
+    depends_on: [31]
+    tasks:
+      - id: T32-mix-pcm
+        summary: mix_pcm saturating-average of both lanes
+        contract_tests: [CT-mix-pcm]

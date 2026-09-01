@@ -334,7 +334,26 @@
     },
     {"id": "SPEC-SYSTEM-AUDIO", "type": "spec", "kiro_name": "system-audio", "wave": [29, 30]},
     {"id": "CT-system-tap-status", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
-    {"id": "CT-system-not-fixture", "type": "contract_test", "path": "src-tauri/tests/contract.rs"}
+    {"id": "CT-system-not-fixture", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {
+      "id": "INV-MIXED-NO-FALLBACK",
+      "type": "invariant",
+      "severity": "HIGH",
+      "control_id": "CONTROL_MIXED_NO_FALLBACK",
+      "statement": "Mixed capture never silently becomes microphone-only.",
+      "ears": "WHEN start_live(Mixed) cannot open both sources, THE SYSTEM SHALL return MIXED_UNAVAILABLE or CAPTURE_UNSUPPORTED recoverable. WHEN system_tap_status is not available, Mixed SHALL fail."
+    },
+    {
+      "id": "INV-MIXED-PCM",
+      "type": "invariant",
+      "severity": "HIGH",
+      "control_id": "CONTROL_MIXED_PCM",
+      "statement": "mix_pcm averages both lanes and never returns CONSULT-001.",
+      "ears": "WHEN mix_pcm runs, THE SYSTEM SHALL return saturating-averaged PCM padded with silence, not fixture bytes."
+    },
+    {"id": "SPEC-MIXED-CAPTURE", "type": "spec", "kiro_name": "mixed-capture", "wave": [31, 32]},
+    {"id": "CT-mixed-not-mic-only", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {"id": "CT-mix-pcm", "type": "contract_test", "path": "src-tauri/tests/contract.rs"}
   ],
   "edges": [
     {"from": "AudioAsset", "to": "Session", "rel": "REFERENCES"},
@@ -409,6 +428,10 @@
     {"from": "INV-SYSTEM-TAP-STATUS", "to": "CT-system-tap-status", "rel": "ENFORCED_BY"},
     {"from": "INV-SYSTEM-NOT-FIXTURE", "to": "CT-system-not-fixture", "rel": "ENFORCED_BY"},
     {"from": "SPEC-SYSTEM-AUDIO", "to": "CT-system-tap-status", "rel": "COVERS"},
-    {"from": "SPEC-SYSTEM-AUDIO", "to": "CT-system-not-fixture", "rel": "COVERS"}
+    {"from": "SPEC-SYSTEM-AUDIO", "to": "CT-system-not-fixture", "rel": "COVERS"},
+    {"from": "INV-MIXED-NO-FALLBACK", "to": "CT-mixed-not-mic-only", "rel": "ENFORCED_BY"},
+    {"from": "INV-MIXED-PCM", "to": "CT-mix-pcm", "rel": "ENFORCED_BY"},
+    {"from": "SPEC-MIXED-CAPTURE", "to": "CT-mixed-not-mic-only", "rel": "COVERS"},
+    {"from": "SPEC-MIXED-CAPTURE", "to": "CT-mix-pcm", "rel": "COVERS"}
   ]
 }
