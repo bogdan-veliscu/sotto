@@ -6,6 +6,63 @@ use std::thread::{self, JoinHandle};
 
 use crate::error::{Result, SottoError};
 
+pub use crate::capture_mix::mix_pcm;
+
+#[cfg(target_os = "macos")]
+use std::collections::VecDeque;
+
+#[cfg(target_os = "macos")]
+struct MixBus {
+    mic: VecDeque<i16>,
+    sys: VecDeque<i16>,
+    rec: Arc<Mutex<ChunkedRecorder>>,
+}
+
+#[cfg(target_os = "macos")]
+impl MixBus {
+    fn new(rec: Arc<Mutex<ChunkedRecorder>>) -> Self {
+        Self {
+            mic: VecDeque::new(),
+            sys: VecDeque::new(),
+            rec,
+        }
+    }
+
+    fn push_mic(&mut self, pcm: &[i16]) {
+        self.mic.extend(pcm.iter().copied());
+        self.drain();
+    }
+
+    fn push_sys(&mut self, pcm: &[i16]) {
+        self.sys.extend(pcm.iter().copied());
+        self.drain();
+    }
+
+    fn drain(&mut self) {
+        const MAX_SKEW: usize = 16_000;
+        align_with_silence(&mut self.mic, &mut self.sys, MAX_SKEW);
+        align_with_silence(&mut self.sys, &mut self.mic, MAX_SKEW);
+        let n = self.mic.len().min(self.sys.len());
+        if n == 0 {
+            return;
+        }
+        let mic: Vec<i16> = self.mic.drain(..n).collect();
+        let sys: Vec<i16> = self.sys.drain(..n).collect();
+        let mixed = mix_pcm(&mic, &sys);
+        if let Ok(mut rec) = self.rec.lock() {
+            let _ = rec.write_pcm(&mixed);
+        }
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn align_with_silence(ahead: &mut VecDeque<i16>, behind: &mut VecDeque<i16>, max_skew: usize) {
+    if ahead.len() > max_skew && behind.len() + max_skew < ahead.len() {
+        let pad = (ahead.len() - behind.len()).min(max_skew);
+        behind.extend(std::iter::repeat_n(0, pad));
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CaptureSource {
     System,
@@ -46,12 +103,21 @@ pub struct CaptureResult {
     pub duration_ms: u64,
 }
 
+fn mixed_unavailable(detail: impl std::fmt::Display) -> SottoError {
+    SottoError::app(
+        "MIXED_UNAVAILABLE",
+        format!("Mixed capture is not available ({detail})"),
+        true,
+        "Grant Screen Recording and microphone access. Mixed will not record microphone only. make demo still uses the golden fixture.",
+    )
+}
+
 fn capture_unsupported(what: impl std::fmt::Display) -> SottoError {
     SottoError::app(
         "CAPTURE_UNSUPPORTED",
         format!("{what} capture backend is not available on this platform"),
         true,
-        "Grant microphone access for mic capture, or Screen Recording for system audio. Mixed capture is a later wave. make demo still uses the golden fixture.",
+        "Grant microphone access for mic capture, or Screen Recording for system audio. Mixed capture needs both and will not fall back to mic-only. make demo still uses the golden fixture.",
     )
 }
 
@@ -474,13 +540,86 @@ fn start_system(dir: &Path) -> Result<LiveSession> {
     }
 }
 
+fn start_mixed(dir: &Path) -> Result<LiveSession> {
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = dir;
+        return Err(mixed_unavailable("not macOS"));
+    }
+    #[cfg(target_os = "macos")]
+    {
+        if !crate::capture_system::screen_recording_granted() {
+            return Err(mixed_unavailable("Screen Recording is off"));
+        }
+        let cfg = CaptureConfig {
+            source: CaptureSource::Mixed,
+            ..CaptureConfig::default()
+        };
+        let sample_rate = cfg.sample_rate;
+        let rec = Arc::new(Mutex::new(ChunkedRecorder::start(dir, cfg)?));
+        let rec_thread = Arc::clone(&rec);
+        let (stop_tx, stop_rx) = mpsc::channel::<()>();
+        let (ready_tx, ready_rx) = mpsc::channel();
+        let worker = thread::Builder::new()
+            .name("sotto-mixed".into())
+            .spawn(move || {
+                let bus = Arc::new(Mutex::new(MixBus::new(rec_thread)));
+                let bus_sys = Arc::clone(&bus);
+                let tap = match crate::capture_system::start_system_sink(sample_rate, move |pcm| {
+                    if let Ok(mut bus) = bus_sys.lock() {
+                        bus.push_sys(pcm);
+                    }
+                }) {
+                    Ok(tap) => tap,
+                    Err(err) => {
+                        let _ = ready_tx.send(Err(err.to_string()));
+                        return;
+                    }
+                };
+                let bus_mic = Arc::clone(&bus);
+                match crate::capture_mic::start_input_sink(sample_rate, move |pcm| {
+                    if let Ok(mut bus) = bus_mic.lock() {
+                        bus.push_mic(pcm);
+                    }
+                }) {
+                    Ok(_stream) => {
+                        let _ = ready_tx.send(Ok(()));
+                        let _ = stop_rx.recv();
+                        drop(tap);
+                    }
+                    Err(err) => {
+                        drop(tap);
+                        let _ = ready_tx.send(Err(err.to_string()));
+                    }
+                }
+            })
+            .map_err(|e| mixed_unavailable(e))?;
+        match ready_rx.recv() {
+            Ok(Ok(())) => Ok(LiveSession {
+                rec,
+                stop: Some(stop_tx),
+                worker: Some(worker),
+            }),
+            Ok(Err(msg)) => {
+                let _ = worker.join();
+                Err(mixed_unavailable(msg))
+            }
+            Err(_) => {
+                let _ = worker.join();
+                Err(mixed_unavailable("mixed backends"))
+            }
+        }
+    }
+}
+
 /// Begin a live capture session. System-audio uses ScreenCaptureKit on macOS
 /// when Screen Recording is already granted; otherwise `CAPTURE_UNSUPPORTED`.
-/// Tests never prompt. On macOS, `Mic`/`Mixed` open a CPAL input stream.
-/// Tests must not call `start_live(Mic)`.
+/// Mixed requires both the tap and the microphone; it never falls back to
+/// mic-only. Tests never prompt. Tests must not call `start_live(Mic)`.
 pub fn start_live(source: CaptureSource, dir: &Path) -> Result<LiveSession> {
     match source {
         CaptureSource::System => start_system(dir),
-        CaptureSource::Mic | CaptureSource::Mixed => start_mic(dir),
+        CaptureSource::Mic => start_mic(dir),
+        CaptureSource::Mixed => start_mixed(dir),
     }
 }

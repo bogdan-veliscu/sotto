@@ -674,7 +674,7 @@
       <div class="engine">
         <strong>System audio</strong>
         <span class="mono">{tapStatus}</span>
-        <p>What you hear on this Mac via ScreenCaptureKit. Grant Screen Recording in System Settings if this says needs-permission. Tests never prompt. Record still uses the microphone until you pick system in a later wave. Consent is still required.</p>
+        <p>What you hear on this Mac via ScreenCaptureKit. Grant Screen Recording in System Settings if this says needs-permission. Mixed capture needs that plus the microphone and will not fall back to mic-only. Record still uses the microphone until you pick a source in a later wave. Consent is still required. Tests never prompt.</p>
       </div>
       <div class="engine">
         <strong>Delete all</strong>

@@ -1,7 +1,7 @@
 use std::fs;
 
 use sotto_lib::capture::{
-    record_sine, start_live, CaptureConfig, CaptureSource, ChunkedRecorder, LiveSession,
+    mix_pcm, record_sine, start_live, CaptureConfig, CaptureSource, ChunkedRecorder, LiveSession,
 };
 use sotto_lib::demo_pipeline;
 use sotto_lib::install::{
@@ -574,6 +574,54 @@ fn ct_system_not_fixture() {
             );
         }
     }
+}
+
+/// CT-mixed-not-mic-only
+/// Mixed must not open a mic-only session when the system tap is unavailable.
+#[test]
+fn ct_mixed_not_mic_only() {
+    let dir = tempdir().unwrap();
+    let tap = sotto_lib::system_tap_status();
+    match start_live(CaptureSource::Mixed, dir.path()) {
+        Err(err) => {
+            assert!(
+                err.code() == "MIXED_UNAVAILABLE" || err.code() == "CAPTURE_UNSUPPORTED",
+                "mixed error must be MIXED_UNAVAILABLE or CAPTURE_UNSUPPORTED, got {}",
+                err.code()
+            );
+            assert!(err.recoverable(), "mixed error must be recoverable");
+        }
+        Ok(session) => {
+            assert_eq!(
+                tap, "available",
+                "mixed must not start unless the system tap is available (got {tap})"
+            );
+            let result = session.finish().expect("finish mixed session");
+            assert_ne!(
+                result.wav.as_slice(),
+                FIXTURE_WAV,
+                "mixed capture must not return CONSULT-001 fixture bytes"
+            );
+        }
+    }
+    if tap != "available" {
+        // Re-check: a second start must still fail. No mic-only fallback.
+        match start_live(CaptureSource::Mixed, dir.path()) {
+            Err(err) => {
+                assert!(err.code() == "MIXED_UNAVAILABLE" || err.code() == "CAPTURE_UNSUPPORTED");
+            }
+            Ok(_) => panic!("mixed must not start when the system tap is {tap}"),
+        }
+    }
+}
+
+/// CT-mix-pcm
+#[test]
+fn ct_mix_pcm() {
+    assert_eq!(mix_pcm(&[100, 100], &[100, 100]), vec![100, 100]);
+    assert_eq!(mix_pcm(&[10, 20], &[30]), vec![20, 10]);
+    assert_eq!(mix_pcm(&[i16::MAX], &[i16::MAX]), vec![i16::MAX]);
+    assert_eq!(mix_pcm(&[], &[7, 8]), vec![3, 4]);
 }
 
 #[test]

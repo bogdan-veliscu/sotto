@@ -45,7 +45,7 @@ v1 PRs 0–6 plus Waves A–E are on `main`. The PRD still requires **system aud
 | PR | Branch | Spec | What ships | Merge gate |
 |----|--------|------|------------|------------|
 | **F** | `feat/system-audio` | `system-audio` | ScreenCaptureKit tap on macOS. Status is `needs-permission` or `available`. Never fakes CONSULT-001. Linux stays `CAPTURE_UNSUPPORTED`. | `CT-system-tap-status`, `CT-system-not-fixture` |
-| **G** | `feat/mixed-capture` | `mixed-capture` | Mix system + mic into `ChunkedRecorder`. Mixed must not silently drop to mic-only. | mixed-capture CTs |
+| **G** | `feat/mixed-capture` | `mixed-capture` | Mix system + mic into `ChunkedRecorder`. Mixed must not silently drop to mic-only. | `CT-mixed-not-mic-only`, `CT-mix-pcm` |
 | **H** | `feat/parakeet-runtime` | `parakeet-runtime` | On-device Parakeet decode. Missing runtime stays `ENGINE_NOT_BUILT`. Never replay the fixture as Parakeet. | parakeet-runtime CTs |
 | **I** | `feat/stt-worker` | `stt-worker` | Batch transcribe off the Tauri command thread so the desk/HUD stay live. | stt-worker CTs |
 | **J** | `feat/source-picker` | `source-picker` | Desk chooses system / mic / mixed. Permission copy. Consent still required. | source-picker CTs |

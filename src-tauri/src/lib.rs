@@ -1,6 +1,7 @@
 pub mod capture;
 #[cfg(target_os = "macos")]
 mod capture_mic;
+mod capture_mix;
 #[cfg(target_os = "macos")]
 mod capture_system;
 mod crypto;
@@ -15,7 +16,7 @@ pub mod presence;
 pub mod search;
 mod store;
 pub mod stt;
-pub use capture::system_tap_status;
+pub use capture::{mix_pcm, system_tap_status};
 pub use engines::{catalog, Engine, InstallState};
 pub use error::SottoError;
 pub use store::Store;

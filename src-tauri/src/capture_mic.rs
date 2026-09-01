@@ -13,11 +13,22 @@ fn unsupported(detail: impl std::fmt::Display) -> SottoError {
         "CAPTURE_UNSUPPORTED",
         format!("Microphone capture is not available ({detail})"),
         true,
-        "Grant microphone permission, or pick a device. System audio mix is not wired yet. make demo still uses the golden fixture.",
+        "Grant microphone permission, or pick a device. Mixed capture needs Screen Recording as well. make demo still uses the golden fixture.",
     )
 }
 
 pub fn start_input_stream(rec: Arc<Mutex<ChunkedRecorder>>, target_rate: u32) -> Result<Stream> {
+    start_input_sink(target_rate, move |pcm| {
+        if let Ok(mut rec) = rec.lock() {
+            let _ = rec.write_pcm(pcm);
+        }
+    })
+}
+
+pub fn start_input_sink<F>(target_rate: u32, on_pcm: F) -> Result<Stream>
+where
+    F: Fn(&[i16]) + Send + 'static,
+{
     let host = cpal::default_host();
     let device = host
         .default_input_device()
@@ -27,31 +38,30 @@ pub fn start_input_stream(rec: Arc<Mutex<ChunkedRecorder>>, target_rate: u32) ->
     let config: StreamConfig = supported.into();
     let channels = config.channels.max(1) as usize;
     let in_rate = config.sample_rate.0;
-    let rec_cb = Arc::clone(&rec);
 
     let stream = match sample_format {
-        SampleFormat::F32 => build_stream::<f32>(
+        SampleFormat::F32 => build_stream::<f32, _>(
             &device,
             &config,
-            rec_cb,
+            on_pcm,
             channels,
             in_rate,
             target_rate,
             |s| (s.clamp(-1.0, 1.0) * f32::from(i16::MAX)) as i16,
         )?,
-        SampleFormat::I16 => build_stream::<i16>(
+        SampleFormat::I16 => build_stream::<i16, _>(
             &device,
             &config,
-            rec_cb,
+            on_pcm,
             channels,
             in_rate,
             target_rate,
             |s| s,
         )?,
-        SampleFormat::U16 => build_stream::<u16>(
+        SampleFormat::U16 => build_stream::<u16, _>(
             &device,
             &config,
-            rec_cb,
+            on_pcm,
             channels,
             in_rate,
             target_rate,
@@ -63,15 +73,18 @@ pub fn start_input_stream(rec: Arc<Mutex<ChunkedRecorder>>, target_rate: u32) ->
     Ok(stream)
 }
 
-fn build_stream<T: Copy + Send + cpal::SizedSample + 'static>(
+fn build_stream<T: Copy + Send + cpal::SizedSample + 'static, F>(
     device: &cpal::Device,
     config: &StreamConfig,
-    rec: Arc<Mutex<ChunkedRecorder>>,
+    on_pcm: F,
     channels: usize,
     in_rate: u32,
     target_rate: u32,
     to_i16: impl Fn(T) -> i16 + Send + 'static,
-) -> Result<Stream> {
+) -> Result<Stream>
+where
+    F: Fn(&[i16]) + Send + 'static,
+{
     device
         .build_input_stream(
             config,
@@ -83,9 +96,7 @@ fn build_stream<T: Copy + Send + cpal::SizedSample + 'static>(
                     }
                 }
                 let pcm = resample_to(&mono, in_rate, target_rate);
-                if let Ok(mut rec) = rec.lock() {
-                    let _ = rec.write_pcm(&pcm);
-                }
+                on_pcm(&pcm);
             },
             move |err| eprintln!("sotto cpal: {err}"),
             None,
