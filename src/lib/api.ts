@@ -4,8 +4,26 @@ import type { Engine, PrivacySettings, SearchHit, Session, SessionDetail } from 
 export const isTauri = () =>
   typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 
+export class DeskError extends Error {
+  constructor(message = 'Run make dev to talk to the local store.') {
+    super(message);
+    this.name = 'DeskError';
+  }
+}
+
 async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
-  return invoke<T>(cmd, args);
+  if (!isTauri()) {
+    throw new DeskError();
+  }
+  try {
+    return await invoke<T>(cmd, args);
+  } catch (e) {
+    const msg =
+      typeof e === 'object' && e !== null && 'message' in e
+        ? String((e as { message: unknown }).message)
+        : String(e);
+    throw new DeskError(msg || 'The local store rejected that command.');
+  }
 }
 
 export const api = {

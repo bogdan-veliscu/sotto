@@ -11,6 +11,13 @@
 
 Caveat: do not expand into cloud sync, teams, or paid packaging until there is evidence beyond the founder.
 
+## Presence and hotkeys (2026-09-01)
+
+Founder override for personal daily use: login item, configurable global shortcut (start/stop/toggle), notch HUD while recording, and optional local meeting-app detection (Zoom / Teams / Slack). Still no bot, no silent cloud, no calendar sync unless a later override says so.
+
+Meeting detection must **ask** before recording (Wispr-style card). Never start capture without the consent disclosure.
+
+
 ## Name
 
 **Sotto** (sotto voce). Repo: `bogdan-veliscu/sotto`. Bundle id: `com.bogdanveliscu.sotto`.
