@@ -144,6 +144,7 @@ pub fn run() {
             commands::meeting_detect_get,
             commands::meeting_detect_set,
             commands::system_tap_get,
+            commands::parakeet_runtime_get,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Sotto");

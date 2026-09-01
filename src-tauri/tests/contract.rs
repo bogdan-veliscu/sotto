@@ -645,7 +645,6 @@ fn ct_meeting_never_silent() {
     assert_eq!(store.get_setting("meeting_detect").unwrap(), None);
 }
 
-
 // ── Wave 33-34: parakeet-runtime ─────────────────────────────────────────────
 
 const GOLDEN_TRANSCRIPT_PHRASE: &str = "privileged consult";
@@ -662,17 +661,14 @@ fn ct_parakeet_runtime_status() {
         valid.contains(&status),
         "parakeet_runtime_status returned unknown value: {status:?}"
     );
-    // Contract tests run with --no-default-features (no `parakeet` feature).
-    // On Linux CI this is always the case. Must be "not-built".
+    assert_ne!(
+        status, "ready",
+        "must not claim ready without a compiled Parakeet decoder"
+    );
     #[cfg(not(feature = "parakeet"))]
     assert_eq!(
         status, "not-built",
-        "without the parakeet feature must be not-built, got {status:?}"
-    );
-    #[cfg(feature = "parakeet")]
-    assert_eq!(
-        status, "ready",
-        "with the parakeet feature compiled must be ready, got {status:?}"
+        "without a decoder must be not-built, got {status:?}"
     );
 }
 
@@ -702,7 +698,10 @@ fn ct_parakeet_not_fixture() {
             // must NOT be the CONSULT-001 golden transcript.
             assert_eq!(result.engine_id, PARAKEET_ENGINE_ID);
             assert!(
-                !result.raw_text.to_lowercase().contains(GOLDEN_TRANSCRIPT_PHRASE),
+                !result
+                    .raw_text
+                    .to_lowercase()
+                    .contains(GOLDEN_TRANSCRIPT_PHRASE),
                 "Parakeet must not replay the CONSULT-001 fixture transcript"
             );
         }

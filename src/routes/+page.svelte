@@ -35,6 +35,7 @@
   let hotkeyMode = $state('toggle');
   let meetingDetect = $state(false);
   let tapStatus = $state('unsupported');
+  let parakeetStatus = $state('not-built');
   let meetingAskOpen = $state(false);
   let meetingCopy = $state('');
   let ignoredKinds = $state<string[]>([]);
@@ -256,6 +257,7 @@
     const meeting = await api.meetingGet();
     meetingDetect = meeting.enabled;
     tapStatus = await api.tapStatus();
+    parakeetStatus = await api.parakeetRuntime();
   }
 
   async function saveHotkey() {
@@ -549,7 +551,13 @@
           <div class="engine">
             <strong>{engine.name}</strong>
             <span class="mono">{engine.mode} · {engine.install_state}</span>
+            {#if engine.id === 'parakeet-tdt-0.6b-v3'}
+              <span class="mono">runtime {parakeetStatus}</span>
+            {/if}
             <p>{engine.notes}</p>
+            {#if engine.id === 'parakeet-tdt-0.6b-v3'}
+              <p>On-device decode is not compiled in until runtime is ready. An installed dummy file is not a model. It will never replay the golden fixture as Parakeet.</p>
+            {/if}
             <div class="engine-actions">
               <button class="ghost" onclick={() => setDefaultModel(engine.id).catch(fail)}>
                 {defaultModel === engine.id ? 'Default' : 'Use as default'}

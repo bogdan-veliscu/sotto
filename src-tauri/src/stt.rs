@@ -11,22 +11,14 @@ pub const FIXTURE_FALLBACK_ENV: &str = "SOTTO_ALLOW_FIXTURE_FALLBACK";
 /// Report whether the on-device Parakeet TDT decoder is compiled into this
 /// binary.
 ///
-/// - `"not-built"` — the optional `parakeet` Cargo feature is off (default,
-///   and always the case on Linux CI with `--no-default-features`).
-/// - `"ready"` — the `parakeet` feature is compiled in. Weights may still be
-///   absent; that is `ENGINE_NOT_INSTALLED` at transcribe time, not here.
+/// - `"not-built"` — no decoder that can produce a transcript is compiled in.
+/// - `"ready"` — on-device Parakeet inference is compiled in. Weights may still
+///   be absent (`ENGINE_NOT_INSTALLED` at transcribe time).
 ///
-/// It SHALL NOT return `"ready"` unless on-device Parakeet inference is
-/// actually compiled in (REQ-PK-001).
+/// An empty `parakeet` Cargo feature is not a decoder. This wave keeps
+/// `"not-built"` until inference is actually wired.
 pub fn parakeet_runtime_status() -> &'static str {
-    #[cfg(feature = "parakeet")]
-    {
-        "ready"
-    }
-    #[cfg(not(feature = "parakeet"))]
-    {
-        "not-built"
-    }
+    "not-built"
 }
 
 /// Local filesystem location for the Whisper ggml weights.

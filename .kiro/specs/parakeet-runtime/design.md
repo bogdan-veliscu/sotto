@@ -7,8 +7,9 @@ On-device Parakeet TDT 0.6B v3. Install already writes `cache_dir/models/parakee
 `src-tauri/src/stt.rs` (optional `src-tauri/src/stt_parakeet.rs`):
 
 - `parakeet_runtime_status() -> &'static str`
-  - decoder not compiled (`parakeet` Cargo feature off, including Linux CI): `not-built`
-  - decoder compiled: `ready` (weights may still be missing — that is `ENGINE_NOT_INSTALLED` at transcribe time)
+  - decoder not compiled (default, Linux CI, empty `parakeet` feature flag): `not-built`
+  - decoder compiled and able to produce a transcript: `ready`
+  - do not claim `ready` for a feature flag with no inference
 - `transcribe_local("parakeet-tdt-0.6b-v3", wav, cache_dir)`
   - missing file: `ENGINE_NOT_INSTALLED` (unchanged)
   - URL-shaped path: `ENGINE_MODEL_INVALID` (unchanged)
