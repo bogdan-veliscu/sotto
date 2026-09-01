@@ -9,6 +9,7 @@ use crate::capture::{start_live, CaptureSource, LiveSession};
 use crate::engines::Engine;
 use crate::error::{ErrorBody, SottoError};
 use crate::hotkey::{self, HotkeyView};
+use crate::meeting::{self, DetectedMeeting};
 use crate::presence::{hud_from_status, login_item_backend, HudView};
 use crate::store::{SearchHit, Session, SessionDetail, Store};
 
@@ -550,4 +551,52 @@ pub fn hotkey_set(
         return Err(err);
     }
     Ok(HotkeyView { shortcut, mode })
+}
+
+#[derive(Serialize)]
+pub struct MeetingDetectReport {
+    pub enabled: bool,
+    pub detected: Vec<DetectedMeeting>,
+    pub should_prompt: bool,
+    pub prompt: String,
+}
+
+fn meeting_report(state: &AppState) -> Result<MeetingDetectReport, ErrorBody> {
+    let recording = !state.live.lock().unwrap().is_empty();
+    let enabled = {
+        let store = state.store.lock().unwrap();
+        meeting::detect_enabled(&store).map_err(map_err)?
+    };
+    let detected = meeting::classify_processes(&meeting::list_process_names());
+    let should_prompt = meeting::should_prompt(&detected, recording, enabled);
+    let prompt = if should_prompt {
+        meeting::prompt_copy(&detected)
+    } else {
+        String::new()
+    };
+    Ok(MeetingDetectReport {
+        enabled,
+        detected,
+        should_prompt,
+        prompt,
+    })
+}
+
+#[tauri::command]
+pub fn meeting_detect_get(state: State<AppState>) -> Result<MeetingDetectReport, ErrorBody> {
+    meeting_report(&*state)
+}
+
+#[tauri::command]
+pub fn meeting_detect_set(
+    state: State<AppState>,
+    enabled: bool,
+) -> Result<MeetingDetectReport, ErrorBody> {
+    state
+        .store
+        .lock()
+        .unwrap()
+        .set_setting("meeting_detect", if enabled { "on" } else { "off" })
+        .map_err(map_err)?;
+    meeting_report(&*state)
 }

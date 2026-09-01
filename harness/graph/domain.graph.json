@@ -296,7 +296,26 @@
     },
     {"id": "SPEC-HOTKEY", "type": "spec", "kiro_name": "hotkey", "wave": [25, 26]},
     {"id": "CT-hotkey-parse", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
-    {"id": "CT-hotkey-mode", "type": "contract_test", "path": "src-tauri/tests/contract.rs"}
+    {"id": "CT-hotkey-mode", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {
+      "id": "INV-MEETING-DETECT",
+      "type": "invariant",
+      "severity": "HIGH",
+      "control_id": "CONTROL_MEETING_DETECT",
+      "statement": "Local process names classify Zoom, Teams, and Slack without starting capture.",
+      "ears": "WHEN classify_processes is given Zoom, Teams, or Slack names, THE SYSTEM SHALL return those kinds and SHALL NOT start recording."
+    },
+    {
+      "id": "INV-MEETING-ASK",
+      "type": "invariant",
+      "severity": "HIGH",
+      "control_id": "CONTROL_MEETING_ASK",
+      "statement": "Meeting detect asks; it never silent-starts.",
+      "ears": "WHEN a meeting app is classified, THE SYSTEM SHALL only recommend a prompt and SHALL still require consent before capture."
+    },
+    {"id": "SPEC-MEETING-DETECT", "type": "spec", "kiro_name": "meeting-detect", "wave": [27, 28]},
+    {"id": "CT-meeting-detect-apps", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {"id": "CT-meeting-never-silent", "type": "contract_test", "path": "src-tauri/tests/contract.rs"}
   ],
   "edges": [
     {"from": "AudioAsset", "to": "Session", "rel": "REFERENCES"},
@@ -363,6 +382,10 @@
     {"from": "INV-HOTKEY-PARSE", "to": "CT-hotkey-parse", "rel": "ENFORCED_BY"},
     {"from": "INV-HOTKEY-MODE", "to": "CT-hotkey-mode", "rel": "ENFORCED_BY"},
     {"from": "SPEC-HOTKEY", "to": "CT-hotkey-parse", "rel": "COVERS"},
-    {"from": "SPEC-HOTKEY", "to": "CT-hotkey-mode", "rel": "COVERS"}
+    {"from": "SPEC-HOTKEY", "to": "CT-hotkey-mode", "rel": "COVERS"},
+    {"from": "INV-MEETING-DETECT", "to": "CT-meeting-detect-apps", "rel": "ENFORCED_BY"},
+    {"from": "INV-MEETING-ASK", "to": "CT-meeting-never-silent", "rel": "ENFORCED_BY"},
+    {"from": "SPEC-MEETING-DETECT", "to": "CT-meeting-detect-apps", "rel": "COVERS"},
+    {"from": "SPEC-MEETING-DETECT", "to": "CT-meeting-never-silent", "rel": "COVERS"}
   ]
 }

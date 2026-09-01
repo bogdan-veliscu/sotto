@@ -33,6 +33,10 @@
   let login = $state({ backend: 'unsupported', requested: false, applied: false });
   let hotkeyShortcut = $state('CommandOrControl+Shift+Space');
   let hotkeyMode = $state('toggle');
+  let meetingDetect = $state(false);
+  let meetingAskOpen = $state(false);
+  let meetingCopy = $state('');
+  let ignoredKinds = $state<string[]>([]);
   let privacy = $state<PrivacySettings>({
     telemetry: 'off',
     cloud_mode: 'off',
@@ -125,6 +129,34 @@
     if (payload.state !== 'pressed') return;
     if (liveStatus === 'recording' || liveStatus === 'paused') await stopAndTranscribe();
     else if (!consentOpen) await startRecord();
+  }
+
+  async function scanMeetings() {
+    if (!tauri || !onboarded || liveStatus !== 'idle' || consentOpen || meetingAskOpen || settingsOpen) {
+      return;
+    }
+    const report = await api.meetingGet();
+    meetingDetect = report.enabled;
+    if (!report.should_prompt) return;
+    const kinds = report.detected.map((d) => d.kind);
+    if (kinds.every((k) => ignoredKinds.includes(k))) return;
+    meetingCopy = report.prompt;
+    meetingAskOpen = true;
+  }
+
+  function dismissMeetingAsk() {
+    meetingAskOpen = false;
+    api
+      .meetingGet()
+      .then((report) => {
+        ignoredKinds = Array.from(new Set([...ignoredKinds, ...report.detected.map((d) => d.kind)]));
+      })
+      .catch(fail);
+  }
+
+  async function acceptMeetingAsk() {
+    meetingAskOpen = false;
+    await startRecord();
   }
 
   async function stopAndTranscribe() {
@@ -220,6 +252,8 @@
     const hotkey = await api.hotkeyGet();
     hotkeyShortcut = hotkey.shortcut;
     hotkeyMode = hotkey.mode;
+    const meeting = await api.meetingGet();
+    meetingDetect = meeting.enabled;
   }
 
   async function saveHotkey() {
@@ -280,13 +314,17 @@
   onMount(() => {
     boot().catch(fail);
     let unlisten: Promise<() => void> | undefined;
+    let scanTimer: number | undefined;
     if (isTauri()) {
       unlisten = listen<{ mode: string; state: string }>('sotto://hotkey', (event) => {
         onHotkey(event.payload).catch(fail);
       });
+      scanTimer = window.setInterval(() => scanMeetings().catch(fail), 15000);
+      scanMeetings().catch(fail);
     }
     return () => {
       window.clearInterval(timer);
+      window.clearInterval(scanTimer);
       unlisten?.then((fn) => fn());
     };
   });
@@ -461,6 +499,19 @@
   </div>
 {/if}
 
+{#if meetingAskOpen}
+  <div class="modal">
+    <div class="card">
+      <p class="wordmark">A meeting looks open</p>
+      <p>{meetingCopy}</p>
+      <div class="actions">
+        <button class="ghost" onclick={dismissMeetingAsk}>Not now</button>
+        <button class="primary" onclick={() => acceptMeetingAsk().catch(fail)}>Record</button>
+      </div>
+    </div>
+  </div>
+{/if}
+
 {#if deleteAllOpen}
   <div class="modal">
     <div class="card">
@@ -600,6 +651,23 @@
           </select>
           <button class="ghost" onclick={() => saveHotkey().catch(fail)}>Save shortcut</button>
         </div>
+      </div>
+      <div class="engine">
+        <strong>Ask when a meeting app is open</strong>
+        <span class="mono">{meetingDetect ? 'on' : 'off'}</span>
+        <p>Watches Zoom, Teams, and Slack on this Mac. It asks. It never starts capture without the consent card. Off by default. No calendar.</p>
+        <button
+          class="ghost"
+          onclick={() =>
+            api
+              .meetingSet(!meetingDetect)
+              .then((r) => {
+                meetingDetect = r.enabled;
+              })
+              .catch(fail)}
+        >
+          {meetingDetect ? 'Turn off' : 'Turn on'}
+        </button>
       </div>
       <div class="engine">
         <strong>Delete all</strong>

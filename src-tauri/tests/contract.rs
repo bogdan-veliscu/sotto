@@ -492,3 +492,38 @@ fn ct_hotkey_mode() {
     let err = sotto_lib::hotkey::parse_hotkey_mode("silent").unwrap_err();
     assert_eq!(err.code(), "HOTKEY_INVALID");
 }
+
+#[test]
+fn ct_meeting_detect_apps() {
+    let zoom = sotto_lib::meeting::classify_processes(&["Finder", "zoom.us", "Safari"]);
+    assert_eq!(zoom.len(), 1);
+    assert_eq!(zoom[0].kind, "zoom");
+    let mixed = sotto_lib::meeting::classify_processes(&["Slack", "Microsoft Teams", "Chrome"]);
+    assert_eq!(mixed.len(), 2);
+    assert!(mixed.iter().any(|d| d.kind == "slack"));
+    assert!(mixed.iter().any(|d| d.kind == "teams"));
+    assert!(
+        sotto_lib::meeting::classify_processes(&["Google Chrome", "Finder", "steam"]).is_empty()
+    );
+}
+
+#[test]
+fn ct_meeting_never_silent() {
+    let apps = sotto_lib::meeting::classify_processes(&["zoom.us"]);
+    assert!(sotto_lib::meeting::should_prompt(&apps, false, true));
+    assert!(!sotto_lib::meeting::should_prompt(&apps, true, true));
+    assert!(!sotto_lib::meeting::should_prompt(&apps, false, false));
+    assert!(!sotto_lib::meeting::should_prompt(&[], false, true));
+    let copy = sotto_lib::meeting::prompt_copy(&apps);
+    assert!(copy.contains("Zoom"));
+    assert!(copy.contains("consent"));
+
+    let dir = tempdir().unwrap();
+    let store = Store::open(dir.path()).unwrap();
+    let session = store
+        .create_session(Some("Detected meeting".into()), "mic")
+        .unwrap();
+    let err = store.start_recording(&session.id).unwrap_err();
+    assert_eq!(err.code(), "CONSENT_REQUIRED");
+    assert_eq!(store.get_setting("meeting_detect").unwrap(), None);
+}
