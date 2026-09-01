@@ -353,7 +353,26 @@
     },
     {"id": "SPEC-MIXED-CAPTURE", "type": "spec", "kiro_name": "mixed-capture", "wave": [31, 32]},
     {"id": "CT-mixed-not-mic-only", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
-    {"id": "CT-mix-pcm", "type": "contract_test", "path": "src-tauri/tests/contract.rs"}
+    {"id": "CT-mix-pcm", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {
+      "id": "INV-PARAKEET-RUNTIME-STATUS",
+      "type": "invariant",
+      "severity": "HIGH",
+      "control_id": "CONTROL_PARAKEET_RUNTIME_STATUS",
+      "statement": "Parakeet runtime status is honest about whether a decoder is compiled in.",
+      "ears": "WHEN parakeet_runtime_status runs without a compiled decoder, THE SYSTEM SHALL return not-built. WHEN a decoder is compiled in, THE SYSTEM SHALL return ready."
+    },
+    {
+      "id": "INV-PARAKEET-NOT-FIXTURE",
+      "type": "invariant",
+      "severity": "HIGH",
+      "control_id": "CONTROL_PARAKEET_NOT_FIXTURE",
+      "statement": "Parakeet transcription never replays CONSULT-001.",
+      "ears": "WHEN transcribe_local runs for parakeet with local weights, THE SYSTEM SHALL return a Parakeet transcript that is not the golden fixture, or ENGINE_NOT_BUILT / ENGINE_MODEL_INVALID recoverable."
+    },
+    {"id": "SPEC-PARAKEET-RUNTIME", "type": "spec", "kiro_name": "parakeet-runtime", "wave": [33, 34]},
+    {"id": "CT-parakeet-runtime-status", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {"id": "CT-parakeet-not-fixture", "type": "contract_test", "path": "src-tauri/tests/contract.rs"}
   ],
   "edges": [
     {"from": "AudioAsset", "to": "Session", "rel": "REFERENCES"},
@@ -432,6 +451,10 @@
     {"from": "INV-MIXED-NO-FALLBACK", "to": "CT-mixed-not-mic-only", "rel": "ENFORCED_BY"},
     {"from": "INV-MIXED-PCM", "to": "CT-mix-pcm", "rel": "ENFORCED_BY"},
     {"from": "SPEC-MIXED-CAPTURE", "to": "CT-mixed-not-mic-only", "rel": "COVERS"},
-    {"from": "SPEC-MIXED-CAPTURE", "to": "CT-mix-pcm", "rel": "COVERS"}
+    {"from": "SPEC-MIXED-CAPTURE", "to": "CT-mix-pcm", "rel": "COVERS"},
+    {"from": "INV-PARAKEET-RUNTIME-STATUS", "to": "CT-parakeet-runtime-status", "rel": "ENFORCED_BY"},
+    {"from": "INV-PARAKEET-NOT-FIXTURE", "to": "CT-parakeet-not-fixture", "rel": "ENFORCED_BY"},
+    {"from": "SPEC-PARAKEET-RUNTIME", "to": "CT-parakeet-runtime-status", "rel": "COVERS"},
+    {"from": "SPEC-PARAKEET-RUNTIME", "to": "CT-parakeet-not-fixture", "rel": "COVERS"}
   ]
 }
