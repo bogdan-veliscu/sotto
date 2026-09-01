@@ -46,11 +46,11 @@ v1 PRs 0–6 plus Waves A–G (`#7`–`#13`) are on `main`. System audio and mix
 |----|--------|------|------------|------------|
 | **F** | `feat/system-audio` | `system-audio` | ScreenCaptureKit tap on macOS. **Shipped** (`#12`). | `CT-system-tap-status`, `CT-system-not-fixture` |
 | **G** | `feat/mixed-capture` | `mixed-capture` | Mix system + mic. Never mic-only fallback. **Shipped** (`#13`). | `CT-mixed-not-mic-only`, `CT-mix-pcm` |
-| **H** | `feat/parakeet-runtime` | `parakeet-runtime` | On-device Parakeet decode. Missing runtime stays `ENGINE_NOT_BUILT`. Never replay the fixture as Parakeet. | `CT-parakeet-runtime-status`, `CT-parakeet-not-fixture` |
-| **I** | `feat/stt-worker` | `stt-worker` | Batch transcribe off the Tauri command thread so the desk/HUD stay live. | stt-worker CTs |
+| **H** | `feat/parakeet-runtime` | `parakeet-runtime` | On-device Parakeet decode. **Shipped** (`#14`). | `CT-parakeet-runtime-status`, `CT-parakeet-not-fixture` |
+| **I** | `feat/stt-worker` | `stt-worker` | Batch transcribe off the Tauri command thread so the desk/HUD stay live. | `CT-stt-worker-releases-lock`, `CT-stt-worker-same-result` |
 | **J** | `feat/source-picker` | `source-picker` | Desk chooses system / mic / mixed. Permission copy. Consent still required. | source-picker CTs |
 
-**PRs remaining: 3. Features: 3.** One spec per PR.
+**PRs remaining: 2. Features: 2.** One spec per PR.
 
 Order: **H → I → J**. Parakeet before the worker so both engines share the worker. Source picker last so mixed/system are real before the desk exposes them.
 

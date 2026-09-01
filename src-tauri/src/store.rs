@@ -365,18 +365,39 @@ impl Store {
         session_id: &str,
         requested_model: Option<String>,
     ) -> Result<SessionDetail> {
+        let job = self.prepare_transcribe(session_id, requested_model)?;
+        let result = crate::stt::transcribe_job(job)?;
+        self.commit_transcript(session_id, &result)
+    }
+
+    /// Resolve engine and decrypt WAV. Does not run inference. Callers that
+    /// hold `Mutex<Store>` must drop the guard before `transcribe_job`.
+    pub fn prepare_transcribe(
+        &self,
+        session_id: &str,
+        requested_model: Option<String>,
+    ) -> Result<crate::stt::TranscribeJob> {
         let cloud = self.cloud_enabled()?;
         let catalog = engines::catalog()?;
         let requested = requested_model
             .or(self.get_setting("default_model")?)
             .unwrap_or_else(|| FIXTURE_ENGINE_ID.to_string());
         let engine = engines::resolve_engine(&requested, cloud, &catalog)?;
-        let engine_id = engine.id.clone();
-        // Transcribe on-device. Local weights only; never downloads, never
-        // silently selects cloud. Fixture-replay stays fully offline.
         let wav = self.read_session_wav(session_id)?;
-        let result = crate::stt::transcribe_local(&engine_id, &wav, &self.data_dir)?;
-        self.persist_transcript(session_id, result.engine_id.as_str(), &result)?;
+        Ok(crate::stt::TranscribeJob {
+            engine_id: engine.id.clone(),
+            wav,
+            cache_dir: self.data_dir.clone(),
+        })
+    }
+
+    /// Persist a worker transcript and return session detail.
+    pub fn commit_transcript(
+        &self,
+        session_id: &str,
+        result: &TranscriptResult,
+    ) -> Result<SessionDetail> {
+        self.persist_transcript(session_id, result.engine_id.as_str(), result)?;
         self.get_detail(session_id)
     }
 
