@@ -224,3 +224,19 @@ waves:
       - id: T28-ask
         summary: should_prompt never silent-starts; consent still required
         contract_tests: [CT-meeting-never-silent]
+  - id: 29
+    spec: system-audio
+    name: tap-status
+    depends_on: [28]
+    tasks:
+      - id: T29-status
+        summary: system_tap_status is unsupported off macOS and honest on macOS
+        contract_tests: [CT-system-tap-status]
+  - id: 30
+    spec: system-audio
+    name: tap-live
+    depends_on: [29]
+    tasks:
+      - id: T30-tap
+        summary: start_live(System) never uses CONSULT-001; unsupported stays recoverable
+        contract_tests: [CT-system-not-fixture]
