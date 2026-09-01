@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { listen } from '@tauri-apps/api/event';
   import { api, formatClock, formatStamp, isTauri } from '$lib/api';
   import type { Engine, PrivacySettings, SearchHit, Session, SessionDetail } from '$lib/types';
   import { open, save } from '@tauri-apps/plugin-dialog';
@@ -30,6 +31,8 @@
   let defaultModel = $state('fixture-replay');
   let shaDraft = $state<Record<string, string>>({});
   let login = $state({ backend: 'unsupported', requested: false, applied: false });
+  let hotkeyShortcut = $state('CommandOrControl+Shift+Space');
+  let hotkeyMode = $state('toggle');
   let privacy = $state<PrivacySettings>({
     telemetry: 'off',
     cloud_mode: 'off',
@@ -105,6 +108,23 @@
     liveStatus = s.status;
     window.clearInterval(timer);
     timer = window.setInterval(() => (elapsed += 1000), 1000);
+  }
+
+  async function onHotkey(payload: { mode: string; state: string }) {
+    if (busy) return;
+    const ptt = payload.mode === 'ptt';
+    if (ptt) {
+      if (payload.state === 'pressed') {
+        if (liveStatus === 'paused') await resume();
+        else if (liveStatus === 'idle' && !consentOpen) await startRecord();
+      } else if (payload.state === 'released' && liveStatus === 'recording') {
+        await pause();
+      }
+      return;
+    }
+    if (payload.state !== 'pressed') return;
+    if (liveStatus === 'recording' || liveStatus === 'paused') await stopAndTranscribe();
+    else if (!consentOpen) await startRecord();
   }
 
   async function stopAndTranscribe() {
@@ -197,6 +217,15 @@
     engines = await api.engines();
     defaultModel = (await api.settingsGet('default_model')) ?? 'fixture-replay';
     login = await api.loginGet();
+    const hotkey = await api.hotkeyGet();
+    hotkeyShortcut = hotkey.shortcut;
+    hotkeyMode = hotkey.mode;
+  }
+
+  async function saveHotkey() {
+    const saved = await api.hotkeySet(hotkeyShortcut, hotkeyMode);
+    hotkeyShortcut = saved.shortcut;
+    hotkeyMode = saved.mode;
   }
 
   async function setPrivacy(key: 'telemetry' | 'cloud_mode', value: string) {
@@ -250,7 +279,16 @@
 
   onMount(() => {
     boot().catch(fail);
-    return () => window.clearInterval(timer);
+    let unlisten: Promise<() => void> | undefined;
+    if (isTauri()) {
+      unlisten = listen<{ mode: string; state: string }>('sotto://hotkey', (event) => {
+        onHotkey(event.payload).catch(fail);
+      });
+    }
+    return () => {
+      window.clearInterval(timer);
+      unlisten?.then((fn) => fn());
+    };
   });
 </script>
 
@@ -540,6 +578,28 @@
         >
           {login.requested ? 'Turn off' : 'Turn on'}
         </button>
+      </div>
+      <div class="engine">
+        <strong>Record shortcut</strong>
+        <span class="mono">{hotkeyMode}</span>
+        <p>Toggle starts or stops through the consent card. Push-to-talk never skips consent.</p>
+        <div class="engine-actions">
+          <input
+            class="tag-input"
+            bind:value={hotkeyShortcut}
+            aria-label="Global shortcut"
+            placeholder="CommandOrControl+Shift+Space"
+          />
+          <select
+            class="tag-input"
+            bind:value={hotkeyMode}
+            aria-label="Shortcut mode"
+          >
+            <option value="toggle">Toggle</option>
+            <option value="ptt">Push to talk</option>
+          </select>
+          <button class="ghost" onclick={() => saveHotkey().catch(fail)}>Save shortcut</button>
+        </div>
       </div>
       <div class="engine">
         <strong>Delete all</strong>

@@ -8,6 +8,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use crate::capture::{start_live, CaptureSource, LiveSession};
 use crate::engines::Engine;
 use crate::error::{ErrorBody, SottoError};
+use crate::hotkey::{self, HotkeyView};
 use crate::presence::{hud_from_status, login_item_backend, HudView};
 use crate::store::{SearchHit, Session, SessionDetail, Store};
 
@@ -465,4 +466,88 @@ pub fn presence_login_set(
 #[tauri::command]
 pub fn presence_hud(status: String, elapsed_ms: u64) -> HudView {
     hud_from_status(&status, elapsed_ms)
+}
+
+/// Register the stored shortcut. Tests never call this (no OS grab).
+pub(crate) fn apply_hotkey(app: &AppHandle) -> Result<(), ErrorBody> {
+    use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
+
+    let view = {
+        let state = app.state::<AppState>();
+        let store = state.store.lock().unwrap();
+        hotkey::view(&store).map_err(map_err)?
+    };
+    let gs = app.global_shortcut();
+    let _ = gs.unregister_all();
+    gs.on_shortcut(view.shortcut.as_str(), move |app, _shortcut, event| {
+        let mode = {
+            let app_state = app.state::<AppState>();
+            let store = app_state.store.lock().unwrap();
+            hotkey::stored_mode(&store).unwrap_or_else(|_| hotkey::DEFAULT_MODE.to_string())
+        };
+        let state = if event.state == ShortcutState::Pressed {
+            "pressed"
+        } else {
+            "released"
+        };
+        let live_empty = {
+            let app_state = app.state::<AppState>();
+            app_state.live.lock().map(|m| m.is_empty()).unwrap_or(true)
+        };
+        if live_empty {
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.unminimize();
+                let _ = w.show();
+                let _ = w.set_focus();
+            }
+        }
+        let _ = app.emit(
+            "sotto://hotkey",
+            serde_json::json!({ "mode": mode, "state": state }),
+        );
+    })
+    .map_err(|e| {
+        map_err(SottoError::app(
+            "HOTKEY_INVALID",
+            format!("Could not register that shortcut ({e})"),
+            true,
+            "Pick a modifier plus a key that is not already used by the system.",
+        ))
+    })?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn hotkey_get(state: State<AppState>) -> Result<HotkeyView, ErrorBody> {
+    let store = state.store.lock().unwrap();
+    hotkey::view(&store).map_err(map_err)
+}
+
+#[tauri::command]
+pub fn hotkey_set(
+    app: AppHandle,
+    state: State<AppState>,
+    shortcut: String,
+    mode: String,
+) -> Result<HotkeyView, ErrorBody> {
+    let shortcut = hotkey::parse_hotkey(&shortcut).map_err(map_err)?;
+    let mode = hotkey::parse_hotkey_mode(&mode).map_err(map_err)?;
+    let previous = {
+        let store = state.store.lock().unwrap();
+        hotkey::view(&store).map_err(map_err)?
+    };
+    {
+        let store = state.store.lock().unwrap();
+        store
+            .set_setting("hotkey_toggle", &shortcut)
+            .map_err(map_err)?;
+        store.set_setting("hotkey_mode", &mode).map_err(map_err)?;
+    }
+    if let Err(err) = apply_hotkey(&app) {
+        let store = state.store.lock().unwrap();
+        let _ = store.set_setting("hotkey_toggle", &previous.shortcut);
+        let _ = store.set_setting("hotkey_mode", &previous.mode);
+        return Err(err);
+    }
+    Ok(HotkeyView { shortcut, mode })
 }

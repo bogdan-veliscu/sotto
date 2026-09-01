@@ -77,6 +77,9 @@ export const api = {
     call<{ backend: string; requested: boolean; applied: boolean }>('presence_login_set', {
       enabled,
     }),
+  hotkeyGet: () => call<{ shortcut: string; mode: string }>('hotkey_get'),
+  hotkeySet: (shortcut: string, mode: string) =>
+    call<{ shortcut: string; mode: string }>('hotkey_set', { shortcut, mode }),
 };
 
 export function formatClock(ms: number): string {
