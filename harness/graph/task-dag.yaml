@@ -272,3 +272,19 @@ waves:
       - id: T34-not-fixture
         summary: Parakeet transcribe never returns CONSULT-001 golden text
         contract_tests: [CT-parakeet-not-fixture]
+  - id: 35
+    spec: stt-worker
+    name: releases-lock
+    depends_on: [34]
+    tasks:
+      - id: T35-lock
+        summary: Store mutex is free during transcribe_local
+        contract_tests: [CT-stt-worker-releases-lock]
+  - id: 36
+    spec: stt-worker
+    name: same-result
+    depends_on: [35]
+    tasks:
+      - id: T36-result
+        summary: transcribe_job matches Store::transcribe; demo stays fixture-replay
+        contract_tests: [CT-stt-worker-same-result]

@@ -372,7 +372,26 @@
     },
     {"id": "SPEC-PARAKEET-RUNTIME", "type": "spec", "kiro_name": "parakeet-runtime", "wave": [33, 34]},
     {"id": "CT-parakeet-runtime-status", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
-    {"id": "CT-parakeet-not-fixture", "type": "contract_test", "path": "src-tauri/tests/contract.rs"}
+    {"id": "CT-parakeet-not-fixture", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {
+      "id": "INV-STT-WORKER-LOCK",
+      "type": "invariant",
+      "severity": "HIGH",
+      "control_id": "CONTROL_STT_WORKER_LOCK",
+      "statement": "On-device inference does not hold the Store mutex.",
+      "ears": "WHEN batch transcription runs, THE SYSTEM SHALL release the Store mutex before transcribe_local so other desk reads can lock."
+    },
+    {
+      "id": "INV-STT-WORKER-RESULT",
+      "type": "invariant",
+      "severity": "HIGH",
+      "control_id": "CONTROL_STT_WORKER_RESULT",
+      "statement": "The worker path matches in-process transcribe and never silent-cloud.",
+      "ears": "WHEN transcribe_job runs for CONSULT-001 fixture-replay, THE SYSTEM SHALL match Store::transcribe and SHALL NOT return CLOUD_DISABLED."
+    },
+    {"id": "SPEC-STT-WORKER", "type": "spec", "kiro_name": "stt-worker", "wave": [35, 36]},
+    {"id": "CT-stt-worker-releases-lock", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {"id": "CT-stt-worker-same-result", "type": "contract_test", "path": "src-tauri/tests/contract.rs"}
   ],
   "edges": [
     {"from": "AudioAsset", "to": "Session", "rel": "REFERENCES"},
@@ -455,6 +474,10 @@
     {"from": "INV-PARAKEET-RUNTIME-STATUS", "to": "CT-parakeet-runtime-status", "rel": "ENFORCED_BY"},
     {"from": "INV-PARAKEET-NOT-FIXTURE", "to": "CT-parakeet-not-fixture", "rel": "ENFORCED_BY"},
     {"from": "SPEC-PARAKEET-RUNTIME", "to": "CT-parakeet-runtime-status", "rel": "COVERS"},
-    {"from": "SPEC-PARAKEET-RUNTIME", "to": "CT-parakeet-not-fixture", "rel": "COVERS"}
+    {"from": "SPEC-PARAKEET-RUNTIME", "to": "CT-parakeet-not-fixture", "rel": "COVERS"},
+    {"from": "INV-STT-WORKER-LOCK", "to": "CT-stt-worker-releases-lock", "rel": "ENFORCED_BY"},
+    {"from": "INV-STT-WORKER-RESULT", "to": "CT-stt-worker-same-result", "rel": "ENFORCED_BY"},
+    {"from": "SPEC-STT-WORKER", "to": "CT-stt-worker-releases-lock", "rel": "COVERS"},
+    {"from": "SPEC-STT-WORKER", "to": "CT-stt-worker-same-result", "rel": "COVERS"}
   ]
 }
