@@ -304,3 +304,83 @@ waves:
       - id: T38-copy
         summary: permission hint requires consent; mixed will not fall back to mic-only
         contract_tests: [CT-source-permission-copy]
+  - id: 39
+    spec: judge-reliability
+    name: deterministic-test-keystore
+    depends_on: [38]
+    tasks:
+      - id: T39-test-keystore
+        summary: macOS judge commands use isolated keys without weakening production Keychain
+        contract_tests: [CT-keychain-test-deterministic]
+  - id: 40
+    spec: judge-reliability
+    name: judge-completes
+    depends_on: [39]
+    tasks:
+      - id: T40-judge-completes
+        summary: demo, contract, and ci complete without desktop resources and keep fixture replay offline
+        contract_tests: [CT-judge-completes]
+  - id: 41
+    spec: model-onboarding
+    name: runnable-import
+    depends_on: [40]
+    tasks:
+      - id: T41-runnable-import
+        summary: ready requires decoder plus valid local model layout; import file or TDT directory without network
+        contract_tests: [CT-model-runnable-ready, CT-model-import-local]
+  - id: 42
+    spec: model-onboarding
+    name: live-selection
+    depends_on: [41]
+    tasks:
+      - id: T42-live-selection
+        summary: live audio uses an explicit runnable non-fixture local engine or remains recorded for retry
+        contract_tests: [CT-live-engine-runnable]
+  - id: 43
+    spec: crash-recovery
+    name: discovery
+    depends_on: [42]
+    tasks:
+      - id: T43-discovery
+        summary: discover flushed chunks only for their exact consented incomplete session
+        contract_tests: [CT-recovery-discovery]
+  - id: 44
+    spec: crash-recovery
+    name: encrypted-recover
+    depends_on: [43]
+    tasks:
+      - id: T44-encrypted-recover
+        summary: explicit recovery encrypts before chunk cleanup; discard stays separate
+        contract_tests: [CT-recovery-encrypted]
+  - id: 45
+    spec: macos-founder-certification
+    name: desktop-gate
+    depends_on: [44]
+    tasks:
+      - id: T45-desktop-gate
+        summary: retain desktop Rust, desk UI, and unsigned app-bundle evidence separately from Linux core
+        contract_tests: [CT-macos-desktop-gate]
+  - id: 46
+    spec: macos-founder-certification
+    name: hardware-e2e
+    depends_on: [45]
+    tasks:
+      - id: T46-hardware-e2e
+        summary: certify consented hardware capture, recovery, encryption, and a real local model without content logs
+        contract_tests: [CT-macos-hardware-e2e]
+  - id: 47
+    spec: docs-readme-closeout
+    name: current-docs
+    depends_on: [46]
+    tasks:
+      - id: T47-current-docs
+        summary: remove stale Wave 1 claims and document live setup prerequisites
+        contract_tests: [CT-docs-current]
+  - id: 48
+    spec: docs-readme-closeout
+    name: evidence-scope
+    depends_on: [47]
+    tasks:
+      - id: T48-evidence-scope
+        summary: keep portable, desktop, hardware, and real-model evidence classes distinct
+        contract_tests: [CT-coverage-honesty]
