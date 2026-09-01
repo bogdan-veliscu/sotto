@@ -10,7 +10,7 @@ System only. Mic only. Mixed. Per-app later.
 
 macOS 14.4+ preferred for Core Audio taps. `Info.plist` already includes `NSMicrophoneUsageDescription` and `NSAudioCaptureUsageDescription`.
 
-Wave 1: `recorder_stop_fixture` still encrypts `CONSULT-001.wav` for `make demo`. The desk Record button uses `recorder_stop` + microphone chunks (`live-record`). System-audio taps remain `CAPTURE_UNSUPPORTED`.
+Wave 1: `recorder_stop_fixture` still encrypts `CONSULT-001.wav` for `make demo`. The desk Record button uses `recorder_stop` + microphone chunks (`live-record`). System-audio uses ScreenCaptureKit when Screen Recording is already granted; otherwise `CAPTURE_UNSUPPORTED` / `needs-permission`. Tests never prompt.
 
 ## Pipeline
 

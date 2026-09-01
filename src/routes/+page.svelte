@@ -674,7 +674,7 @@
       <div class="engine">
         <strong>System audio</strong>
         <span class="mono">{tapStatus}</span>
-        <p>What you hear on this Mac. Unsupported until a tap backend is compiled. Record still uses the microphone. Consent is still required.</p>
+        <p>What you hear on this Mac via ScreenCaptureKit. Grant Screen Recording in System Settings if this says needs-permission. Tests never prompt. Record still uses the microphone until you pick system in a later wave. Consent is still required.</p>
       </div>
       <div class="engine">
         <strong>Delete all</strong>

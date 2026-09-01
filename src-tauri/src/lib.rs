@@ -1,6 +1,8 @@
 pub mod capture;
 #[cfg(target_os = "macos")]
 mod capture_mic;
+#[cfg(target_os = "macos")]
+mod capture_system;
 mod crypto;
 mod engines;
 mod error;

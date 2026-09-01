@@ -536,11 +536,13 @@ fn ct_system_tap_status() {
         status, "unsupported",
         "off macOS must always be unsupported, got {status:?}"
     );
-    // This wave compiles no tap backend, so macOS must not claim available.
-    assert_ne!(
-        status, "available",
-        "must not claim available without a compiled system-audio backend"
-    );
+    #[cfg(target_os = "macos")]
+    {
+        assert!(
+            status == "needs-permission" || status == "available",
+            "macOS with a compiled tap must be needs-permission or available, got {status:?}"
+        );
+    }
 }
 
 /// CT-system-not-fixture
