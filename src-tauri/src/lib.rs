@@ -7,6 +7,7 @@ mod error;
 pub mod install;
 pub mod keys;
 pub mod notes;
+pub mod presence;
 pub mod search;
 mod store;
 pub mod stt;
@@ -82,6 +83,10 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            Some(vec!["--autostart"]),
+        ))
         .setup(|app| {
             let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
             fs::create_dir_all(&dir)?;
@@ -91,6 +96,7 @@ pub fn run() {
                 store: Mutex::new(store),
                 live: Mutex::new(HashMap::new()),
             });
+            setup_tray(app)?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -119,7 +125,53 @@ pub fn run() {
             commands::data_delete_all,
             commands::key_report,
             commands::retention_apply,
+            commands::presence_login_get,
+            commands::presence_login_set,
+            commands::presence_hud,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Sotto");
+}
+
+#[cfg(feature = "desktop")]
+fn setup_tray(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
+    use tauri::menu::{Menu, MenuItem};
+    use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+    use tauri::Manager;
+
+    let open = MenuItem::with_id(app, "open", "Open desk", true, None::<&str>)?;
+    let menu = Menu::with_items(app, &[&open])?;
+    let icon = app
+        .default_window_icon()
+        .cloned()
+        .ok_or("Sotto is missing a window icon for the menu bar")?;
+    TrayIconBuilder::with_id("sotto")
+        .icon(icon)
+        .menu(&menu)
+        .tooltip("Sotto — on this Mac")
+        .on_menu_event(|app, event| {
+            if event.id() == "open" {
+                if let Some(w) = app.get_webview_window("main") {
+                    let _ = w.unminimize();
+                    let _ = w.show();
+                    let _ = w.set_focus();
+                }
+            }
+        })
+        .on_tray_icon_event(|tray, event| {
+            if let TrayIconEvent::Click {
+                button: MouseButton::Left,
+                button_state: MouseButtonState::Up,
+                ..
+            } = event
+            {
+                if let Some(w) = tray.app_handle().get_webview_window("main") {
+                    let _ = w.unminimize();
+                    let _ = w.show();
+                    let _ = w.set_focus();
+                }
+            }
+        })
+        .build(app)?;
+    Ok(())
 }

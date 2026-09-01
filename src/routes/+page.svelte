@@ -29,6 +29,7 @@
   let titleDraft = $state('');
   let defaultModel = $state('fixture-replay');
   let shaDraft = $state<Record<string, string>>({});
+  let login = $state({ backend: 'unsupported', requested: false, applied: false });
   let privacy = $state<PrivacySettings>({
     telemetry: 'off',
     cloud_mode: 'off',
@@ -195,6 +196,7 @@
     privacy = await api.privacy();
     engines = await api.engines();
     defaultModel = (await api.settingsGet('default_model')) ?? 'fixture-replay';
+    login = await api.loginGet();
   }
 
   async function setPrivacy(key: 'telemetry' | 'cloud_mode', value: string) {
@@ -523,6 +525,21 @@
               .then((p) => (privacy = p))
               .catch(fail)}
         />
+      </div>
+      <div class="engine">
+        <strong>Open at login</strong>
+        <span class="mono">{login.backend} · {login.requested ? 'on' : 'off'}</span>
+        <p>Registers Sotto as a login item on this Mac. It still will not record until you consent.</p>
+        <button
+          class="ghost"
+          onclick={() =>
+            api
+              .loginSet(!login.requested)
+              .then((r) => (login = r))
+              .catch(fail)}
+        >
+          {login.requested ? 'Turn off' : 'Turn on'}
+        </button>
       </div>
       <div class="engine">
         <strong>Delete all</strong>

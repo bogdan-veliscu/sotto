@@ -12,9 +12,24 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "Sotto",
         "width": 1280,
         "height": 820
+      },
+      {
+        "label": "hud",
+        "title": "Sotto HUD",
+        "url": "/hud",
+        "width": 240,
+        "height": 44,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "resizable": false,
+        "visible": false,
+        "skipTaskbar": true,
+        "shadow": false
       }
     ],
     "security": {
