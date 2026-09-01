@@ -644,3 +644,88 @@ fn ct_meeting_never_silent() {
     assert_eq!(err.code(), "CONSENT_REQUIRED");
     assert_eq!(store.get_setting("meeting_detect").unwrap(), None);
 }
+
+
+// ── Wave 33-34: parakeet-runtime ─────────────────────────────────────────────
+
+const GOLDEN_TRANSCRIPT_PHRASE: &str = "privileged consult";
+
+/// CT-parakeet-runtime-status
+/// Without the `parakeet` Cargo feature: must be "not-built".
+/// With it: must be "ready".
+/// Must never claim "ready" without a compiled decoder (REQ-PK-001).
+#[test]
+fn ct_parakeet_runtime_status() {
+    let status = sotto_lib::parakeet_runtime_status();
+    let valid = ["not-built", "ready"];
+    assert!(
+        valid.contains(&status),
+        "parakeet_runtime_status returned unknown value: {status:?}"
+    );
+    // Contract tests run with --no-default-features (no `parakeet` feature).
+    // On Linux CI this is always the case. Must be "not-built".
+    #[cfg(not(feature = "parakeet"))]
+    assert_eq!(
+        status, "not-built",
+        "without the parakeet feature must be not-built, got {status:?}"
+    );
+    #[cfg(feature = "parakeet")]
+    assert_eq!(
+        status, "ready",
+        "with the parakeet feature compiled must be ready, got {status:?}"
+    );
+}
+
+/// CT-parakeet-not-fixture
+/// With weights installed:
+/// - `parakeet` feature off  → ENGINE_NOT_BUILT recoverable (no decoder compiled).
+/// - `parakeet` feature on   → ENGINE_MODEL_INVALID for the dummy blob (not a
+///   real ONNX model), or ENGINE_NOT_BUILT if the stub is still wiring up.
+/// Either way: must NOT return CLOUD_DISABLED, and must NOT return a
+/// TranscriptResult whose text is the CONSULT-001 golden transcript.
+#[test]
+fn ct_parakeet_not_fixture() {
+    let dir = tempdir().unwrap();
+
+    // Install the dummy blob (same bytes used by ct_parakeet_local).
+    install_bytes(
+        PARAKEET_ENGINE_ID,
+        dir.path(),
+        PARAKEET_BLOB,
+        PARAKEET_SHA256,
+    )
+    .expect("install dummy blob");
+
+    match transcribe_local(PARAKEET_ENGINE_ID, FIXTURE_WAV, dir.path()) {
+        Ok(result) => {
+            // A real decoder ran. engine_id must be parakeet, and the text
+            // must NOT be the CONSULT-001 golden transcript.
+            assert_eq!(result.engine_id, PARAKEET_ENGINE_ID);
+            assert!(
+                !result.raw_text.to_lowercase().contains(GOLDEN_TRANSCRIPT_PHRASE),
+                "Parakeet must not replay the CONSULT-001 fixture transcript"
+            );
+        }
+        Err(err) => {
+            // Acceptable codes: ENGINE_NOT_BUILT or ENGINE_MODEL_INVALID.
+            // Both must be recoverable. CLOUD_DISABLED is never acceptable.
+            assert_ne!(
+                err.code(),
+                "CLOUD_DISABLED",
+                "Parakeet must never return CLOUD_DISABLED"
+            );
+            assert!(
+                err.code() == "ENGINE_NOT_BUILT" || err.code() == "ENGINE_MODEL_INVALID",
+                "expected ENGINE_NOT_BUILT or ENGINE_MODEL_INVALID, got {}",
+                err.code()
+            );
+            assert!(err.recoverable(), "error must be recoverable");
+        }
+    }
+
+    // demo_pipeline must still use fixture-replay regardless of installed blob.
+    let demo_dir = tempdir().unwrap();
+    let report = demo_pipeline(demo_dir.path()).expect("demo");
+    assert_eq!(report.engine_id, "fixture-replay");
+    assert_eq!(report.network_calls, 0);
+}

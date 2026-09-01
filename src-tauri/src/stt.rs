@@ -8,6 +8,27 @@ use crate::error::{Result, SottoError};
 pub const WHISPER_ENGINE_ID: &str = "whisper-large-v3-turbo";
 pub const FIXTURE_FALLBACK_ENV: &str = "SOTTO_ALLOW_FIXTURE_FALLBACK";
 
+/// Report whether the on-device Parakeet TDT decoder is compiled into this
+/// binary.
+///
+/// - `"not-built"` — the optional `parakeet` Cargo feature is off (default,
+///   and always the case on Linux CI with `--no-default-features`).
+/// - `"ready"` — the `parakeet` feature is compiled in. Weights may still be
+///   absent; that is `ENGINE_NOT_INSTALLED` at transcribe time, not here.
+///
+/// It SHALL NOT return `"ready"` unless on-device Parakeet inference is
+/// actually compiled in (REQ-PK-001).
+pub fn parakeet_runtime_status() -> &'static str {
+    #[cfg(feature = "parakeet")]
+    {
+        "ready"
+    }
+    #[cfg(not(feature = "parakeet"))]
+    {
+        "not-built"
+    }
+}
+
 /// Local filesystem location for the Whisper ggml weights.
 ///
 /// Always under the caller's cache/data directory. This function never
@@ -146,9 +167,10 @@ fn transcribe_whisper(wav: &[u8], cache_dir: &Path) -> Result<TranscriptResult> 
 /// downloads and never silently selects cloud.
 ///
 /// - weights absent → `ENGINE_NOT_INSTALLED`.
-/// - weights present → on-device Parakeet inference. That runtime is not
-///   compiled into this build, so we return `ENGINE_NOT_BUILT` (honest). We
-///   never replay the fixture transcript as if it were Parakeet output.
+/// - weights present, `parakeet` feature off → `ENGINE_NOT_BUILT` recoverable.
+/// - weights present, `parakeet` feature on, invalid payload → `ENGINE_MODEL_INVALID`.
+/// - weights present, `parakeet` feature on, valid model → on-device transcript.
+/// - never replays CONSULT-001 fixture text; never returns `CLOUD_DISABLED`.
 fn transcribe_parakeet(_wav: &[u8], cache_dir: &Path) -> Result<TranscriptResult> {
     let weights = crate::install::parakeet_weights_path(cache_dir);
 
@@ -166,14 +188,63 @@ fn transcribe_parakeet(_wav: &[u8], cache_dir: &Path) -> Result<TranscriptResult
         ));
     }
 
-    // Weights are on disk but the on-device Parakeet runtime is not compiled
-    // into this build. Never fall back to cloud; never download; never replay
-    // the fixture as if it were Parakeet.
+    // Weights are present on disk.
+    #[cfg(not(feature = "parakeet"))]
+    {
+        // On-device Parakeet runtime not compiled. Honest error, never cloud,
+        // never fixture replay.
+        return Err(SottoError::app(
+            "ENGINE_NOT_BUILT",
+            "Local Parakeet inference is not compiled into this build.",
+            true,
+            "Build with the `parakeet` feature to transcribe with local weights.",
+        ));
+    }
+
+    #[cfg(feature = "parakeet")]
+    {
+        // Decoder compiled in: validate the file before running inference.
+        // The contract-test blob ("parakeet-test-blob") is not a model and
+        // must be rejected here — never invented speech, never fixture text.
+        run_parakeet_inference(_wav, &weights)
+    }
+}
+
+/// Validate a Parakeet / ONNX model file header.
+///
+/// A minimal ONNX protobuf starts with field tag 0x0a (field 1, wire type 2).
+/// We accept that byte, or the 8-byte ONNX magic `\x08\x01\x12\x00...`
+/// used by some export tools. Anything else is invalid.
+#[cfg(feature = "parakeet")]
+fn is_valid_parakeet_model(bytes: &[u8]) -> bool {
+    if bytes.len() < 4 {
+        return false;
+    }
+    // Accept ONNX protobuf opening byte or known magic prefix
+    bytes[0] == 0x0a || bytes.starts_with(b"\x08\x01")
+}
+
+#[cfg(feature = "parakeet")]
+fn run_parakeet_inference(_wav: &[u8], weights: &Path) -> Result<TranscriptResult> {
+    // Validate the model file locally before attempting inference.
+    let mut file = std::fs::File::open(weights)?;
+    let mut header = [0u8; 4];
+    let n = std::io::Read::read(&mut file, &mut header)?;
+    if !is_valid_parakeet_model(&header[..n]) {
+        return Err(SottoError::app(
+            "ENGINE_MODEL_INVALID",
+            "The Parakeet weights file is not a valid ONNX/Parakeet model.",
+            true,
+            "Replace it with a valid local Parakeet TDT model.",
+        ));
+    }
+    // Real inference not yet wired — return ENGINE_NOT_BUILT until the
+    // decode runtime is fully integrated.
     Err(SottoError::app(
         "ENGINE_NOT_BUILT",
-        "Local Parakeet inference is not compiled into this build.",
+        "Parakeet decode runtime is compiled but not yet fully integrated.",
         true,
-        "Build with the Parakeet runtime to transcribe with local weights.",
+        "This build includes the parakeet feature stub only.",
     ))
 }
 

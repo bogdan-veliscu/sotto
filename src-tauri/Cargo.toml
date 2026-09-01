@@ -27,6 +27,10 @@ desktop = ["dep:tauri", "dep:tauri-plugin-opener", "dep:tauri-plugin-dialog", "d
 # and off on Linux CI (`cargo test --no-default-features`) so core contract
 # tests never compile ggml. Weights are always local; nothing downloads.
 whisper = ["dep:whisper-rs"]
+# Optional on-device Parakeet TDT decoder. Off by default and NOT included in
+# the `desktop` feature so CI and `make demo` stay fixture-replay without a
+# 1.2 GB model. Enable only when the local decode runtime is proven.
+parakeet = []
 
 [build-dependencies]
 tauri-build = { version = "2", features = [], optional = true }
