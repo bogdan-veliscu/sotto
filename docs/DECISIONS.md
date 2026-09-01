@@ -11,6 +11,16 @@
 
 Caveat: do not expand into cloud sync, teams, or paid packaging until there is evidence beyond the founder.
 
+## Soft launch — trusted circle (2026-09-01)
+
+Founder override: proceed to a **trusted-circle** soft launch, not a public paid launch.
+
+Done means `docs/SOFT_LAUNCH.md`: a first user can grant TCC, import a local Whisper file or Parakeet TDT directory, record with consent, get an on-device transcript, recover or discard a crashed capture, and follow an honest README.
+
+Ship K → L → M → N → O. L is the product P0. Notarization, Product Hunt, Stripe, and interviews-before-charging stay out of this bar. Interviews remain required before **charging** (`docs/LAUNCH_PLAN.md` Phase 0).
+
+Lead (Cursor) and Codex (`til:codex`) cooperate: Codex implements one PR at a time; lead steers, reviews, and merges.
+
 ## Presence and hotkeys (2026-09-01)
 
 Founder override for personal daily use: login item, configurable global shortcut (start/stop/toggle), notch HUD while recording, and optional local meeting-app detection (Zoom / Teams / Slack). Still no bot, no silent cloud, no calendar sync unless a later override says so.

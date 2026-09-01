@@ -410,7 +410,111 @@
     },
     {"id": "SPEC-SOURCE-PICKER", "type": "spec", "kiro_name": "source-picker", "wave": [37, 38]},
     {"id": "CT-source-unknown", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
-    {"id": "CT-source-permission-copy", "type": "contract_test", "path": "src-tauri/tests/contract.rs"}
+    {"id": "CT-source-permission-copy", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {
+      "id": "INV-MODEL-RUNNABLE-READY",
+      "type": "invariant",
+      "severity": "CRITICAL",
+      "control_id": "CONTROL_MODEL_RUNNABLE_READY",
+      "statement": "Live-ready means a compiled decoder plus a runnable local model layout.",
+      "ears": "WHEN the catalog reports a local engine ready for live transcription, THE SYSTEM SHALL require a compiled decoder and runnable local model layout; a Parakeet checksum blob alone SHALL NOT be ready."
+    },
+    {
+      "id": "INV-MODEL-IMPORT-LOCAL",
+      "type": "invariant",
+      "severity": "CRITICAL",
+      "control_id": "CONTROL_MODEL_IMPORT_LOCAL",
+      "statement": "Model import accepts only user-selected local files or directories and never downloads.",
+      "ears": "WHEN model weights are imported, THE SYSTEM SHALL validate and activate a local Whisper file or complete Parakeet TDT directory and SHALL NOT fetch replacement files."
+    },
+    {
+      "id": "INV-LIVE-ENGINE-RUNNABLE",
+      "type": "invariant",
+      "severity": "CRITICAL",
+      "control_id": "CONTROL_LIVE_ENGINE_RUNNABLE",
+      "statement": "Live audio never defaults to fixture replay and remains retryable until a runnable local engine is selected.",
+      "ears": "WHEN a live recording stops, THE SYSTEM SHALL use an explicitly selected runnable non-fixture local engine or keep the encrypted recording recorded with ENGINE_SETUP_REQUIRED."
+    },
+    {"id": "SPEC-MODEL-ONBOARDING", "type": "spec", "kiro_name": "model-onboarding", "wave": [41, 42]},
+    {"id": "CT-model-runnable-ready", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {"id": "CT-model-import-local", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {"id": "CT-live-engine-runnable", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {
+      "id": "INV-RECOVERY-DISCOVERY",
+      "type": "invariant",
+      "severity": "HIGH",
+      "control_id": "CONTROL_RECOVERY_DISCOVERY",
+      "statement": "Incomplete flushed capture chunks are discoverable only for their consented session.",
+      "ears": "WHEN Sotto opens after an unfinalized consented capture has flushed chunks, THE SYSTEM SHALL report that exact session as recoverable and SHALL NOT discard or reassign the chunks."
+    },
+    {
+      "id": "INV-RECOVERY-ENCRYPTED",
+      "type": "invariant",
+      "severity": "CRITICAL",
+      "control_id": "CONTROL_RECOVERY_ENCRYPTED",
+      "statement": "Recovered capture is encrypted before plaintext chunks are removed.",
+      "ears": "WHEN the user recovers an incomplete capture, THE SYSTEM SHALL persist encrypted audio through normal finalization before removing plaintext chunks."
+    },
+    {"id": "SPEC-CRASH-RECOVERY", "type": "spec", "kiro_name": "crash-recovery", "wave": [43, 44]},
+    {"id": "CT-recovery-discovery", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {"id": "CT-recovery-encrypted", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {
+      "id": "INV-KEYCHAIN-TEST-DETERMINISTIC",
+      "type": "invariant",
+      "severity": "HIGH",
+      "control_id": "CONTROL_KEYCHAIN_TEST_DETERMINISTIC",
+      "statement": "macOS judge commands use an isolated test keystore while production desktop keeps Keychain.",
+      "ears": "WHEN make demo, make contract, or make ci runs in a macOS test context, THE SYSTEM SHALL use an isolated deterministic test keystore without changing the production Keychain backend."
+    },
+    {
+      "id": "INV-JUDGE-COMPLETES",
+      "type": "invariant",
+      "severity": "HIGH",
+      "control_id": "CONTROL_JUDGE_COMPLETES",
+      "statement": "Judge commands complete without desktop resources and preserve the offline fixture boundary.",
+      "ears": "WHEN make demo, make contract, or make ci runs with cached dependencies, THE SYSTEM SHALL complete without hardware, permissions, model weights, or desktop UI and SHALL keep demo on fixture-replay with zero network calls."
+    },
+    {"id": "SPEC-JUDGE-RELIABILITY", "type": "spec", "kiro_name": "judge-reliability", "wave": [39, 40]},
+    {"id": "CT-keychain-test-deterministic", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {"id": "CT-judge-completes", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {
+      "id": "INV-MACOS-DESKTOP-GATE",
+      "type": "invariant",
+      "severity": "HIGH",
+      "control_id": "CONTROL_MACOS_DESKTOP_GATE",
+      "statement": "macOS desktop build claims require current desktop targets, UI, and unsigned app evidence.",
+      "ears": "WHEN the macOS desktop is claimed buildable, THE SYSTEM SHALL have current desktop Rust, desk UI, and unsigned app-bundle evidence; Linux core results SHALL NOT satisfy the gate."
+    },
+    {
+      "id": "INV-MACOS-HARDWARE-E2E",
+      "type": "invariant",
+      "severity": "HIGH",
+      "control_id": "CONTROL_MACOS_HARDWARE_E2E",
+      "statement": "Founder daily-use certification requires content-free live hardware, recovery, encryption, and real-model evidence.",
+      "ears": "WHEN Sotto is certified for founder daily use, THE SYSTEM SHALL have current consented mic, system, mixed, pause, recovery, encryption, and real local-model evidence; compile-only results SHALL NOT satisfy the gate."
+    },
+    {"id": "SPEC-MACOS-CERT", "type": "spec", "kiro_name": "macos-founder-certification", "wave": [45, 46]},
+    {"id": "CT-macos-desktop-gate", "type": "contract_test", "path": "tests/contract/test_macos_cert.py"},
+    {"id": "CT-macos-hardware-e2e", "type": "contract_test", "path": "tests/contract/test_macos_cert.py"},
+    {
+      "id": "INV-DOCS-CURRENT",
+      "type": "invariant",
+      "severity": "HIGH",
+      "control_id": "CONTROL_DOCS_CURRENT",
+      "statement": "Public docs distinguish demo, live capture, model prerequisites, and shipped work.",
+      "ears": "WHEN a first user reads product and contributor docs, THE SYSTEM SHALL distinguish fixture demo from live capture and real local transcription and SHALL NOT describe shipped waves as future work."
+    },
+    {
+      "id": "INV-COVERAGE-HONESTY",
+      "type": "invariant",
+      "severity": "HIGH",
+      "control_id": "CONTROL_COVERAGE_HONESTY",
+      "statement": "Verification claims name their platform and evidence class.",
+      "ears": "WHEN documentation claims a capability is verified, THE SYSTEM SHALL distinguish Linux core contracts, macOS desktop build, hardware permission probes, and real-model transcription."
+    },
+    {"id": "SPEC-DOCS-CLOSEOUT", "type": "spec", "kiro_name": "docs-readme-closeout", "wave": [47, 48]},
+    {"id": "CT-docs-current", "type": "contract_test", "path": "tests/contract/test_docs.py"},
+    {"id": "CT-coverage-honesty", "type": "contract_test", "path": "tests/contract/test_docs.py"}
   ],
   "edges": [
     {"from": "AudioAsset", "to": "Session", "rel": "REFERENCES"},
@@ -501,6 +605,28 @@
     {"from": "INV-SOURCE-KNOWN", "to": "CT-source-unknown", "rel": "ENFORCED_BY"},
     {"from": "INV-SOURCE-CONSENT-COPY", "to": "CT-source-permission-copy", "rel": "ENFORCED_BY"},
     {"from": "SPEC-SOURCE-PICKER", "to": "CT-source-unknown", "rel": "COVERS"},
-    {"from": "SPEC-SOURCE-PICKER", "to": "CT-source-permission-copy", "rel": "COVERS"}
+    {"from": "SPEC-SOURCE-PICKER", "to": "CT-source-permission-copy", "rel": "COVERS"},
+    {"from": "INV-MODEL-RUNNABLE-READY", "to": "CT-model-runnable-ready", "rel": "ENFORCED_BY"},
+    {"from": "INV-MODEL-IMPORT-LOCAL", "to": "CT-model-import-local", "rel": "ENFORCED_BY"},
+    {"from": "INV-LIVE-ENGINE-RUNNABLE", "to": "CT-live-engine-runnable", "rel": "ENFORCED_BY"},
+    {"from": "SPEC-MODEL-ONBOARDING", "to": "CT-model-runnable-ready", "rel": "COVERS"},
+    {"from": "SPEC-MODEL-ONBOARDING", "to": "CT-model-import-local", "rel": "COVERS"},
+    {"from": "SPEC-MODEL-ONBOARDING", "to": "CT-live-engine-runnable", "rel": "COVERS"},
+    {"from": "INV-RECOVERY-DISCOVERY", "to": "CT-recovery-discovery", "rel": "ENFORCED_BY"},
+    {"from": "INV-RECOVERY-ENCRYPTED", "to": "CT-recovery-encrypted", "rel": "ENFORCED_BY"},
+    {"from": "SPEC-CRASH-RECOVERY", "to": "CT-recovery-discovery", "rel": "COVERS"},
+    {"from": "SPEC-CRASH-RECOVERY", "to": "CT-recovery-encrypted", "rel": "COVERS"},
+    {"from": "INV-KEYCHAIN-TEST-DETERMINISTIC", "to": "CT-keychain-test-deterministic", "rel": "ENFORCED_BY"},
+    {"from": "INV-JUDGE-COMPLETES", "to": "CT-judge-completes", "rel": "ENFORCED_BY"},
+    {"from": "SPEC-JUDGE-RELIABILITY", "to": "CT-keychain-test-deterministic", "rel": "COVERS"},
+    {"from": "SPEC-JUDGE-RELIABILITY", "to": "CT-judge-completes", "rel": "COVERS"},
+    {"from": "INV-MACOS-DESKTOP-GATE", "to": "CT-macos-desktop-gate", "rel": "ENFORCED_BY"},
+    {"from": "INV-MACOS-HARDWARE-E2E", "to": "CT-macos-hardware-e2e", "rel": "ENFORCED_BY"},
+    {"from": "SPEC-MACOS-CERT", "to": "CT-macos-desktop-gate", "rel": "COVERS"},
+    {"from": "SPEC-MACOS-CERT", "to": "CT-macos-hardware-e2e", "rel": "COVERS"},
+    {"from": "INV-DOCS-CURRENT", "to": "CT-docs-current", "rel": "ENFORCED_BY"},
+    {"from": "INV-COVERAGE-HONESTY", "to": "CT-coverage-honesty", "rel": "ENFORCED_BY"},
+    {"from": "SPEC-DOCS-CLOSEOUT", "to": "CT-docs-current", "rel": "COVERS"},
+    {"from": "SPEC-DOCS-CLOSEOUT", "to": "CT-coverage-honesty", "rel": "COVERS"}
   ]
 }
