@@ -22,15 +22,14 @@ path = "src/bin/demo.rs"
 
 [features]
 default = ["desktop"]
-desktop = ["dep:tauri", "dep:tauri-plugin-opener", "dep:tauri-plugin-dialog", "dep:tauri-plugin-autostart", "dep:tauri-plugin-global-shortcut", "dep:tauri-build", "whisper"]
+desktop = ["dep:tauri", "dep:tauri-plugin-opener", "dep:tauri-plugin-dialog", "dep:tauri-plugin-autostart", "dep:tauri-plugin-global-shortcut", "dep:tauri-build", "whisper", "parakeet"]
 # Optional on-device Whisper inference. Pulls whisper-rs/ggml. Off by default
 # and off on Linux CI (`cargo test --no-default-features`) so core contract
 # tests never compile ggml. Weights are always local; nothing downloads.
 whisper = ["dep:whisper-rs"]
-# Optional on-device Parakeet TDT decoder. Off by default and NOT included in
-# the `desktop` feature so CI and `make demo` stay fixture-replay without a
-# 1.2 GB model. Enable only when the local decode runtime is proven.
-parakeet = []
+# Optional on-device Parakeet TDT decoder via ONNX Runtime. Off on Linux CI.
+# A dummy `.bin` is not a model. Real weights are a local TDT directory.
+parakeet = ["dep:parakeet-rs"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [], optional = true }
@@ -52,6 +51,7 @@ uuid = { version = "1", features = ["v4", "serde"] }
 thiserror = "2"
 directories = "5"
 whisper-rs = { version = "0.12", optional = true }
+parakeet-rs = { version = "0.3", optional = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 security-framework = "2"

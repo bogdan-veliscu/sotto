@@ -20,12 +20,26 @@ pub struct InstallResult {
     pub sha256: String,
 }
 
-/// Local filesystem location for the Parakeet weights.
+/// Local filesystem location for the Parakeet checksum blob (install tests).
 ///
 /// Always under the caller's cache/data directory. Never a URL; callers must
 /// never fetch this over the network.
 pub fn parakeet_weights_path(cache_dir: &Path) -> PathBuf {
     cache_dir.join(MODELS_DIR).join(PARAKEET_FILE)
+}
+
+/// Directory that holds a Parakeet TDT ONNX export
+/// (`encoder-model.onnx`, `decoder_joint-model.onnx`, `vocab.txt`).
+pub fn parakeet_model_dir(cache_dir: &Path) -> PathBuf {
+    cache_dir.join(MODELS_DIR).join("parakeet-tdt-0.6b-v3")
+}
+
+/// True when `dir` looks like a Parakeet TDT 0.6B v3 ONNX layout.
+pub fn parakeet_tdt_layout_ok(dir: &Path) -> bool {
+    dir.is_dir()
+        && dir.join("encoder-model.onnx").is_file()
+        && dir.join("decoder_joint-model.onnx").is_file()
+        && dir.join("vocab.txt").is_file()
 }
 
 /// Resolve the on-disk weights path for an installable engine id.
@@ -124,14 +138,26 @@ pub fn delete_model(engine_id: &str, cache_dir: &Path) -> Result<()> {
         )
     })?;
     match fs::remove_file(&dest) {
-        Ok(()) => Ok(()),
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
-        Err(err) => Err(err.into()),
+        Ok(()) => {}
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+        Err(err) => return Err(err.into()),
     }
+    if engine_id == PARAKEET_ENGINE_ID {
+        let dir = parakeet_model_dir(cache_dir);
+        match fs::remove_dir_all(&dir) {
+            Ok(()) => {}
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+            Err(err) => return Err(err.into()),
+        }
+    }
+    Ok(())
 }
 
 /// True when checksum-valid weights are present on disk for an engine.
 pub fn is_installed(engine_id: &str, cache_dir: &Path) -> bool {
+    if engine_id == PARAKEET_ENGINE_ID && parakeet_tdt_layout_ok(&parakeet_model_dir(cache_dir)) {
+        return true;
+    }
     weights_path_for(engine_id, cache_dir)
         .map(|p| p.exists())
         .unwrap_or(false)
@@ -218,5 +244,41 @@ mod tests {
             dir.path(),
         );
         assert_eq!(engines[0].install_state, InstallState::Ready);
+    }
+
+    #[test]
+    fn overlay_and_delete_tdt_dir() {
+        let dir = tempdir().unwrap();
+        let tdt = parakeet_model_dir(dir.path());
+        fs::create_dir_all(&tdt).unwrap();
+        fs::write(tdt.join("encoder-model.onnx"), b"x").unwrap();
+        fs::write(tdt.join("decoder_joint-model.onnx"), b"x").unwrap();
+        fs::write(tdt.join("vocab.txt"), b"x").unwrap();
+        assert!(is_installed(PARAKEET_ENGINE_ID, dir.path()));
+
+        let engines = overlay_catalog(
+            vec![Engine {
+                id: PARAKEET_ENGINE_ID.into(),
+                vendor: "x".into(),
+                name: "Parakeet".into(),
+                version: "1".into(),
+                mode: crate::engines::EngineMode::Local,
+                supported_languages: vec!["en".into()],
+                supports_timestamps: true,
+                supports_streaming: false,
+                requires_gpu: false,
+                estimated_speed: "n/a".into(),
+                estimated_accuracy: "n/a".into(),
+                install_state: InstallState::NotInstalled,
+                disk_size_mb: 1,
+                notes: String::new(),
+            }],
+            dir.path(),
+        );
+        assert_eq!(engines[0].install_state, InstallState::Ready);
+
+        delete_model(PARAKEET_ENGINE_ID, dir.path()).unwrap();
+        assert!(!is_installed(PARAKEET_ENGINE_ID, dir.path()));
+        assert!(!tdt.exists());
     }
 }

@@ -16,6 +16,8 @@ pub mod presence;
 pub mod search;
 mod store;
 pub mod stt;
+#[cfg(feature = "parakeet")]
+mod stt_parakeet;
 pub use capture::{mix_pcm, system_tap_status};
 pub use engines::{catalog, Engine, InstallState};
 pub use error::SottoError;

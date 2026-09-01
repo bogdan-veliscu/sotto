@@ -556,7 +556,7 @@
             {/if}
             <p>{engine.notes}</p>
             {#if engine.id === 'parakeet-tdt-0.6b-v3'}
-              <p>On-device decode is not compiled in until runtime is ready. An installed dummy file is not a model. It will never replay the golden fixture as Parakeet.</p>
+              <p>Runtime ready means on-device decode is compiled in. Real weights are encoder-model.onnx, decoder_joint-model.onnx, and vocab.txt in the Parakeet TDT folder. A dummy checksum file is not a model. It will never replay the golden fixture as Parakeet.</p>
             {/if}
             <div class="engine-actions">
               <button class="ghost" onclick={() => setDefaultModel(engine.id).catch(fail)}>

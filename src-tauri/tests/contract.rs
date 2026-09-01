@@ -651,7 +651,7 @@ const GOLDEN_TRANSCRIPT_PHRASE: &str = "privileged consult";
 
 /// CT-parakeet-runtime-status
 /// Without the `parakeet` Cargo feature: must be "not-built".
-/// With it: must be "ready".
+/// With it: must be "ready" (on-device `parakeet-rs` inference is compiled in).
 /// Must never claim "ready" without a compiled decoder (REQ-PK-001).
 #[test]
 fn ct_parakeet_runtime_status() {
@@ -661,14 +661,15 @@ fn ct_parakeet_runtime_status() {
         valid.contains(&status),
         "parakeet_runtime_status returned unknown value: {status:?}"
     );
-    assert_ne!(
-        status, "ready",
-        "must not claim ready without a compiled Parakeet decoder"
-    );
     #[cfg(not(feature = "parakeet"))]
     assert_eq!(
         status, "not-built",
         "without a decoder must be not-built, got {status:?}"
+    );
+    #[cfg(feature = "parakeet")]
+    assert_eq!(
+        status, "ready",
+        "compiled parakeet-rs decoder must report ready, got {status:?}"
     );
 }
 
@@ -676,7 +677,7 @@ fn ct_parakeet_runtime_status() {
 /// With weights installed:
 /// - `parakeet` feature off  → ENGINE_NOT_BUILT recoverable (no decoder compiled).
 /// - `parakeet` feature on   → ENGINE_MODEL_INVALID for the dummy blob (not a
-///   real ONNX model), or ENGINE_NOT_BUILT if the stub is still wiring up.
+///   TDT directory). Never a golden-transcript TranscriptResult.
 /// Either way: must NOT return CLOUD_DISABLED, and must NOT return a
 /// TranscriptResult whose text is the CONSULT-001 golden transcript.
 #[test]
