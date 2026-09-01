@@ -21,6 +21,10 @@ Do not collapse these into “CI green” or “ready.” Record the exact comma
 
 Close stale Wave 1 wording in README, PRODUCT_BRIEF, LAUNCH_PLAN, API_CONTRACT, ARCHITECTURE, UX_FLOWS, IMPLEMENTATION_ROADMAP, MODEL_ABSTRACTION, and relevant contributor-facing docs. Preserve locked EARS and historical decision records. Update PR/feature counts from the DAG.
 
+## Contract home
+
+`tests/contract/test_docs.py` owns `CT-docs-current` and `CT-coverage-honesty`. The tests are string/claim checks only: no network, model import, decoder, or desktop launch. They remain explicitly skipped while wave 47 is pending; wave 47 removes the skip as part of making the documented claim set pass.
+
 ## Forbidden
 
 - Claiming real capture from fixture evidence

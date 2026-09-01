@@ -476,7 +476,7 @@
     },
     {"id": "SPEC-JUDGE-RELIABILITY", "type": "spec", "kiro_name": "judge-reliability", "wave": [39, 40]},
     {"id": "CT-keychain-test-deterministic", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
-    {"id": "CT-judge-completes", "type": "contract_test", "path": "tests/contract/test_catalog.py"},
+    {"id": "CT-judge-completes", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
     {
       "id": "INV-MACOS-DESKTOP-GATE",
       "type": "invariant",
@@ -494,8 +494,8 @@
       "ears": "WHEN Sotto is certified for founder daily use, THE SYSTEM SHALL have current consented mic, system, mixed, pause, recovery, encryption, and real local-model evidence; compile-only results SHALL NOT satisfy the gate."
     },
     {"id": "SPEC-MACOS-CERT", "type": "spec", "kiro_name": "macos-founder-certification", "wave": [45, 46]},
-    {"id": "CT-macos-desktop-gate", "type": "contract_test", "path": "tests/contract/test_catalog.py"},
-    {"id": "CT-macos-hardware-e2e", "type": "contract_test", "path": "tests/contract/test_catalog.py"},
+    {"id": "CT-macos-desktop-gate", "type": "contract_test", "path": "tests/contract/test_macos_cert.py"},
+    {"id": "CT-macos-hardware-e2e", "type": "contract_test", "path": "tests/contract/test_macos_cert.py"},
     {
       "id": "INV-DOCS-CURRENT",
       "type": "invariant",
@@ -513,8 +513,8 @@
       "ears": "WHEN documentation claims a capability is verified, THE SYSTEM SHALL distinguish Linux core contracts, macOS desktop build, hardware permission probes, and real-model transcription."
     },
     {"id": "SPEC-DOCS-CLOSEOUT", "type": "spec", "kiro_name": "docs-readme-closeout", "wave": [47, 48]},
-    {"id": "CT-docs-current", "type": "contract_test", "path": "tests/contract/test_catalog.py"},
-    {"id": "CT-coverage-honesty", "type": "contract_test", "path": "tests/contract/test_catalog.py"}
+    {"id": "CT-docs-current", "type": "contract_test", "path": "tests/contract/test_docs.py"},
+    {"id": "CT-coverage-honesty", "type": "contract_test", "path": "tests/contract/test_docs.py"}
   ],
   "edges": [
     {"from": "AudioAsset", "to": "Session", "rel": "REFERENCES"},
