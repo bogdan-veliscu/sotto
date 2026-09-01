@@ -1,7 +1,8 @@
 use std::fs;
 
 use sotto_lib::capture::{
-    mix_pcm, record_sine, start_live, CaptureConfig, CaptureSource, ChunkedRecorder, LiveSession,
+    mix_pcm, record_sine, source_permission_hint, start_live, CaptureConfig, CaptureSource,
+    ChunkedRecorder, LiveSession,
 };
 use sotto_lib::demo_pipeline;
 use sotto_lib::install::{
@@ -834,4 +835,55 @@ fn ct_stt_worker_same_result() {
     let report = demo_pipeline(demo_dir.path()).expect("demo");
     assert_eq!(report.engine_id, "fixture-replay");
     assert_eq!(report.network_calls, 0);
+}
+
+/// CT-source-unknown
+/// Only mic / system / mixed. Anything else is SOURCE_UNKNOWN recoverable,
+/// never silent mixed, never a meeting bot.
+#[test]
+fn ct_source_unknown() {
+    assert_eq!(CaptureSource::try_parse("mic").unwrap(), CaptureSource::Mic);
+    assert_eq!(
+        CaptureSource::try_parse("system").unwrap(),
+        CaptureSource::System
+    );
+    assert_eq!(
+        CaptureSource::try_parse("mixed").unwrap(),
+        CaptureSource::Mixed
+    );
+    let err = CaptureSource::try_parse("bot").unwrap_err();
+    assert_eq!(err.code(), "SOURCE_UNKNOWN");
+    assert!(err.recoverable());
+    let err = CaptureSource::try_parse("cloud").unwrap_err();
+    assert_eq!(err.code(), "SOURCE_UNKNOWN");
+}
+
+/// CT-source-permission-copy
+/// Hint always requires consent. Mixed says it will not fall back to mic-only.
+/// Never claims capture may start without consent.
+#[test]
+fn ct_source_permission_copy() {
+    for source in [
+        CaptureSource::Mic,
+        CaptureSource::System,
+        CaptureSource::Mixed,
+    ] {
+        for tap in ["unsupported", "needs-permission", "available"] {
+            let hint = source_permission_hint(source, tap);
+            let lower = hint.to_lowercase();
+            assert!(
+                lower.contains("consent is still required"),
+                "hint must require consent: {hint}"
+            );
+            assert!(
+                !lower.contains("without consent"),
+                "hint must not skip consent: {hint}"
+            );
+        }
+    }
+    let mixed = source_permission_hint(CaptureSource::Mixed, "unsupported").to_lowercase();
+    assert!(
+        mixed.contains("not") && mixed.contains("mic"),
+        "mixed must refuse mic-only fallback: {mixed}"
+    );
 }

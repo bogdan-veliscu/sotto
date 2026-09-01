@@ -36,6 +36,8 @@
   let meetingDetect = $state(false);
   let tapStatus = $state('unsupported');
   let parakeetStatus = $state('not-built');
+  let captureSource = $state('mic');
+  let sourceHint = $state('Microphone access is required. Consent is still required.');
   let meetingAskOpen = $state(false);
   let meetingCopy = $state('');
   let ignoredKinds = $state<string[]>([]);
@@ -70,6 +72,11 @@
     const flag = await api.settingsGet('onboarding_complete');
     onboarded = flag === 'true';
     defaultModel = (await api.settingsGet('default_model')) ?? 'fixture-replay';
+    const savedSource = await api.settingsGet('capture_source');
+    if (savedSource === 'mic' || savedSource === 'system' || savedSource === 'mixed') {
+      captureSource = savedSource;
+    }
+    await persistSource();
     await refresh();
     if (sessions[0]) await openSession(sessions[0].id);
   }
@@ -79,9 +86,19 @@
     onboarded = true;
   }
 
+  async function persistSource() {
+    if (captureSource !== 'mic' && captureSource !== 'system' && captureSource !== 'mixed') {
+      captureSource = 'mic';
+    }
+    if (!tauri) return;
+    await api.settingsSet('capture_source', captureSource);
+    sourceHint = await api.sourceHint(captureSource);
+  }
+
   async function startRecord() {
     err = '';
-    const session = await api.start(undefined, 'mic');
+    await persistSource();
+    const session = await api.start(undefined, captureSource);
     pendingId = session.id;
     consentOpen = true;
     await refresh();
@@ -258,6 +275,7 @@
     meetingDetect = meeting.enabled;
     tapStatus = await api.tapStatus();
     parakeetStatus = await api.parakeetRuntime();
+    await persistSource();
   }
 
   async function saveHotkey() {
@@ -360,6 +378,17 @@
         <button class="ghost" onclick={() => resume().catch(fail)}>Resume</button>
         <button class="danger" onclick={() => stopAndTranscribe().catch(fail)}>Stop</button>
       {:else}
+        <select
+          class="source-pick"
+          bind:value={captureSource}
+          onchange={() => persistSource().catch(fail)}
+          disabled={!tauri || !!busy}
+          aria-label="Capture source"
+        >
+          <option value="mic">Microphone</option>
+          <option value="system">What you hear</option>
+          <option value="mixed">Mixed</option>
+        </select>
         <button class="primary" onclick={() => startRecord().catch(fail)} disabled={!tauri || !!busy}>
           Record
         </button>
@@ -494,6 +523,7 @@
   <div class="modal">
     <div class="card">
       <p class="wordmark">Before you record</p>
+      <p class="fine">{sourceHint}</p>
       <blockquote>{consentText}</blockquote>
       <div class="actions">
         <button class="ghost" onclick={() => (consentOpen = false)}>Cancel</button>
@@ -682,7 +712,7 @@
       <div class="engine">
         <strong>System audio</strong>
         <span class="mono">{tapStatus}</span>
-        <p>What you hear on this Mac via ScreenCaptureKit. Grant Screen Recording in System Settings if this says needs-permission. Mixed capture needs that plus the microphone and will not fall back to mic-only. Record still uses the microphone until you pick a source in a later wave. Consent is still required. Tests never prompt.</p>
+        <p>What you hear on this Mac via ScreenCaptureKit. Grant Screen Recording in System Settings if this says needs-permission. Mixed capture needs that plus the microphone and will not fall back to mic-only. Pick the source next to Record. Consent is still required. Tests never prompt.</p>
       </div>
       <div class="engine">
         <strong>Delete all</strong>
@@ -707,6 +737,7 @@
   .search { flex: 1 1 240px; min-width: 0; }
   .search input { width: 100%; background: var(--panel); border: 1px solid var(--line); color: var(--paper); padding: 10px 12px; }
   .rec { display: flex; gap: 8px; align-items: center; flex: 0 1 auto; flex-wrap: wrap; }
+  .source-pick { background: transparent; border: 1px solid var(--line); color: var(--paper); padding: 8px 10px; }
   .led { width: 10px; height: 10px; border-radius: 50%; background: #3a2a26; box-shadow: inset 0 0 0 1px #000; }
   .led.on { background: var(--led); box-shadow: 0 0 12px var(--led); animation: pulse 1.2s ease-in-out infinite; }
   @keyframes pulse { 50% { opacity: 0.55; } }
