@@ -8,7 +8,7 @@ Sotto is a **local-first meeting recorder**. Headline: a meeting recorded on thi
 
 PR 0 (shipped): fixture capture → AES-GCM → fixture-replay → FTS5 → delete-all.
 
-**Current DAG wave: 25–26 (`hotkey`).** Configurable global toggle + optional PTT. Meeting-detect is next. See `docs/PR_PLAN.md`.
+**Current DAG wave: 27–28 (`meeting-detect`).** Local process watch; ask before record. Never silent-start. See `docs/PR_PLAN.md`.
 
 ## Commands
 

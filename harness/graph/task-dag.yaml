@@ -208,3 +208,19 @@ waves:
       - id: T26-mode
         summary: toggle or ptt; desk listens without skipping consent
         contract_tests: [CT-hotkey-mode]
+  - id: 27
+    spec: meeting-detect
+    name: classify
+    depends_on: [26]
+    tasks:
+      - id: T27-classify
+        summary: classify_processes Zoom/Teams/Slack from injected names
+        contract_tests: [CT-meeting-detect-apps]
+  - id: 28
+    spec: meeting-detect
+    name: ask
+    depends_on: [27]
+    tasks:
+      - id: T28-ask
+        summary: should_prompt never silent-starts; consent still required
+        contract_tests: [CT-meeting-never-silent]

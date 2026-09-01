@@ -80,6 +80,20 @@ export const api = {
   hotkeyGet: () => call<{ shortcut: string; mode: string }>('hotkey_get'),
   hotkeySet: (shortcut: string, mode: string) =>
     call<{ shortcut: string; mode: string }>('hotkey_set', { shortcut, mode }),
+  meetingGet: () =>
+    call<{
+      enabled: boolean;
+      detected: { kind: string; label: string; process: string }[];
+      should_prompt: boolean;
+      prompt: string;
+    }>('meeting_detect_get'),
+  meetingSet: (enabled: boolean) =>
+    call<{
+      enabled: boolean;
+      detected: { kind: string; label: string; process: string }[];
+      should_prompt: boolean;
+      prompt: string;
+    }>('meeting_detect_set', { enabled }),
 };
 
 export function formatClock(ms: number): string {

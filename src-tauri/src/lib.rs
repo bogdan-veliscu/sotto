@@ -7,6 +7,7 @@ mod error;
 pub mod hotkey;
 pub mod install;
 pub mod keys;
+pub mod meeting;
 pub mod notes;
 pub mod presence;
 pub mod search;
@@ -135,6 +136,8 @@ pub fn run() {
             commands::presence_hud,
             commands::hotkey_get,
             commands::hotkey_set,
+            commands::meeting_detect_get,
+            commands::meeting_detect_set,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Sotto");
