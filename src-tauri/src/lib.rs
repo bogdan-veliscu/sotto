@@ -139,6 +139,7 @@ pub fn run() {
             commands::hotkey_set,
             commands::meeting_detect_get,
             commands::meeting_detect_set,
+            commands::system_tap_get,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Sotto");

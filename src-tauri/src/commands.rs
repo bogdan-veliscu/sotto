@@ -600,3 +600,8 @@ pub fn meeting_detect_set(
         .map_err(map_err)?;
     meeting_report(&*state)
 }
+
+#[tauri::command]
+pub fn system_tap_get() -> String {
+    crate::system_tap_status().to_string()
+}

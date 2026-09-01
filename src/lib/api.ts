@@ -87,13 +87,14 @@ export const api = {
       should_prompt: boolean;
       prompt: string;
     }>('meeting_detect_get'),
-  meetingSet: (enabled: boolean) =>
+    meetingSet: (enabled: boolean) =>
     call<{
       enabled: boolean;
       detected: { kind: string; label: string; process: string }[];
       should_prompt: boolean;
       prompt: string;
     }>('meeting_detect_set', { enabled }),
+  tapStatus: () => call<string>('system_tap_get'),
 };
 
 export function formatClock(ms: number): string {
