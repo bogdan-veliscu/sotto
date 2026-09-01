@@ -277,7 +277,26 @@
     },
     {"id": "SPEC-PRESENCE", "type": "spec", "kiro_name": "presence", "wave": [23, 24]},
     {"id": "CT-hud-recording", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
-    {"id": "CT-login-item-backend", "type": "contract_test", "path": "src-tauri/tests/contract.rs"}
+    {"id": "CT-login-item-backend", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {
+      "id": "INV-HOTKEY-PARSE",
+      "type": "invariant",
+      "severity": "HIGH",
+      "control_id": "CONTROL_HOTKEY_PARSE",
+      "statement": "Empty hotkey strings are rejected.",
+      "ears": "WHEN parse_hotkey is given empty input, THE SYSTEM SHALL return HOTKEY_INVALID."
+    },
+    {
+      "id": "INV-HOTKEY-MODE",
+      "type": "invariant",
+      "severity": "HIGH",
+      "control_id": "CONTROL_HOTKEY_MODE",
+      "statement": "Hotkey mode is toggle or ptt only.",
+      "ears": "WHEN parse_hotkey_mode is given toggle or ptt, THE SYSTEM SHALL accept it and reject other values."
+    },
+    {"id": "SPEC-HOTKEY", "type": "spec", "kiro_name": "hotkey", "wave": [25, 26]},
+    {"id": "CT-hotkey-parse", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {"id": "CT-hotkey-mode", "type": "contract_test", "path": "src-tauri/tests/contract.rs"}
   ],
   "edges": [
     {"from": "AudioAsset", "to": "Session", "rel": "REFERENCES"},
@@ -340,6 +359,10 @@
     {"from": "INV-HUD-RECORDING", "to": "CT-hud-recording", "rel": "ENFORCED_BY"},
     {"from": "INV-LOGIN-ITEM-BACKEND", "to": "CT-login-item-backend", "rel": "ENFORCED_BY"},
     {"from": "SPEC-PRESENCE", "to": "CT-hud-recording", "rel": "COVERS"},
-    {"from": "SPEC-PRESENCE", "to": "CT-login-item-backend", "rel": "COVERS"}
+    {"from": "SPEC-PRESENCE", "to": "CT-login-item-backend", "rel": "COVERS"},
+    {"from": "INV-HOTKEY-PARSE", "to": "CT-hotkey-parse", "rel": "ENFORCED_BY"},
+    {"from": "INV-HOTKEY-MODE", "to": "CT-hotkey-mode", "rel": "ENFORCED_BY"},
+    {"from": "SPEC-HOTKEY", "to": "CT-hotkey-parse", "rel": "COVERS"},
+    {"from": "SPEC-HOTKEY", "to": "CT-hotkey-mode", "rel": "COVERS"}
   ]
 }

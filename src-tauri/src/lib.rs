@@ -4,6 +4,7 @@ mod capture_mic;
 mod crypto;
 mod engines;
 mod error;
+pub mod hotkey;
 pub mod install;
 pub mod keys;
 pub mod notes;
@@ -87,6 +88,7 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec!["--autostart"]),
         ))
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .setup(|app| {
             let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
             fs::create_dir_all(&dir)?;
@@ -96,6 +98,9 @@ pub fn run() {
                 store: Mutex::new(store),
                 live: Mutex::new(HashMap::new()),
             });
+            if let Err(err) = commands::apply_hotkey(app.handle()) {
+                eprintln!("sotto: global hotkey not armed ({})", err.message);
+            }
             setup_tray(app)?;
             Ok(())
         })
@@ -128,6 +133,8 @@ pub fn run() {
             commands::presence_login_get,
             commands::presence_login_set,
             commands::presence_hud,
+            commands::hotkey_get,
+            commands::hotkey_set,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Sotto");

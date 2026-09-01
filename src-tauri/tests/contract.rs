@@ -466,3 +466,29 @@ fn ct_login_item_backend() {
     assert_eq!(backend == "smappservice", cfg!(target_os = "macos"));
     assert_eq!(backend == "unsupported", !cfg!(target_os = "macos"));
 }
+
+#[test]
+fn ct_hotkey_parse() {
+    assert_eq!(
+        sotto_lib::hotkey::parse_hotkey(" Command+Shift+Space ").unwrap(),
+        "Command+Shift+Space"
+    );
+    let err = sotto_lib::hotkey::parse_hotkey("   ").unwrap_err();
+    assert_eq!(err.code(), "HOTKEY_INVALID");
+    assert_eq!(
+        sotto_lib::hotkey::DEFAULT_TOGGLE,
+        "CommandOrControl+Shift+Space"
+    );
+}
+
+#[test]
+fn ct_hotkey_mode() {
+    assert_eq!(
+        sotto_lib::hotkey::parse_hotkey_mode("toggle").unwrap(),
+        "toggle"
+    );
+    assert_eq!(sotto_lib::hotkey::parse_hotkey_mode("ptt").unwrap(), "ptt");
+    assert_eq!(sotto_lib::hotkey::parse_hotkey_mode("").unwrap(), "toggle");
+    let err = sotto_lib::hotkey::parse_hotkey_mode("silent").unwrap_err();
+    assert_eq!(err.code(), "HOTKEY_INVALID");
+}

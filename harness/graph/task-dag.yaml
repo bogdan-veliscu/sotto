@@ -192,3 +192,19 @@ waves:
       - id: T24-login-tray
         summary: login-item backend + settings + tray/HUD
         contract_tests: [CT-login-item-backend]
+  - id: 25
+    spec: hotkey
+    name: parse
+    depends_on: [24]
+    tasks:
+      - id: T25-parse
+        summary: parse_hotkey rejects empty; default is CommandOrControl+Shift+Space
+        contract_tests: [CT-hotkey-parse]
+  - id: 26
+    spec: hotkey
+    name: mode
+    depends_on: [25]
+    tasks:
+      - id: T26-mode
+        summary: toggle or ptt; desk listens without skipping consent
+        contract_tests: [CT-hotkey-mode]
