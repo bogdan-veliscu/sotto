@@ -8,6 +8,21 @@ use crate::error::{Result, SottoError};
 pub const WHISPER_ENGINE_ID: &str = "whisper-large-v3-turbo";
 pub const FIXTURE_FALLBACK_ENV: &str = "SOTTO_ALLOW_FIXTURE_FALLBACK";
 
+/// Report whether the on-device Parakeet TDT decoder is compiled into this
+/// binary.
+///
+/// - `"not-built"` — no decoder that can produce a transcript is compiled in
+///   (Linux CI, `--no-default-features`).
+/// - `"ready"` — `parakeet-rs` inference is compiled in. Weights may still be
+///   absent (`ENGINE_NOT_INSTALLED`) or a dummy blob (`ENGINE_MODEL_INVALID`).
+pub fn parakeet_runtime_status() -> &'static str {
+    if cfg!(feature = "parakeet") {
+        "ready"
+    } else {
+        "not-built"
+    }
+}
+
 /// Local filesystem location for the Whisper ggml weights.
 ///
 /// Always under the caller's cache/data directory. This function never
@@ -142,39 +157,65 @@ fn transcribe_whisper(wav: &[u8], cache_dir: &Path) -> Result<TranscriptResult> 
     run_whisper_inference(WHISPER_ENGINE_ID, wav, &weights)
 }
 
+fn parakeet_not_installed() -> SottoError {
+    SottoError::app(
+        "ENGINE_NOT_INSTALLED",
+        "Parakeet TDT weights are not installed on this Mac.",
+        true,
+        "Place encoder-model.onnx, decoder_joint-model.onnx, and vocab.txt in the local TDT folder. Sotto will not download them or use the cloud.",
+    )
+}
+
+fn parakeet_not_a_model() -> SottoError {
+    SottoError::app(
+        "ENGINE_MODEL_INVALID",
+        "The Parakeet file on disk is not a TDT model directory.",
+        true,
+        "Place encoder-model.onnx, decoder_joint-model.onnx, and vocab.txt in models/parakeet-tdt-0.6b-v3/. A checksum blob is not a model.",
+    )
+}
+
 /// Transcribe with the local Parakeet weights. Local files only; never
 /// downloads and never silently selects cloud.
 ///
-/// - weights absent → `ENGINE_NOT_INSTALLED`.
-/// - weights present → on-device Parakeet inference. That runtime is not
-///   compiled into this build, so we return `ENGINE_NOT_BUILT` (honest). We
-///   never replay the fixture transcript as if it were Parakeet output.
-fn transcribe_parakeet(_wav: &[u8], cache_dir: &Path) -> Result<TranscriptResult> {
-    let weights = crate::install::parakeet_weights_path(cache_dir);
+/// - checksum blob and TDT directory both absent → `ENGINE_NOT_INSTALLED`.
+/// - present, `parakeet` feature off → `ENGINE_NOT_BUILT` recoverable.
+/// - present, decoder compiled, dummy `.bin` / incomplete dir → `ENGINE_MODEL_INVALID`.
+/// - TDT directory present, decoder compiled → on-device transcript.
+/// - never copies CONSULT-001 fixture text; never returns `CLOUD_DISABLED`.
+fn transcribe_parakeet(wav: &[u8], cache_dir: &Path) -> Result<TranscriptResult> {
+    let blob = crate::install::parakeet_weights_path(cache_dir);
+    let tdt = crate::install::parakeet_model_dir(cache_dir);
 
     // Local files only. A URL-shaped path is never fetched.
-    if looks_like_url(&weights) {
-        return Err(model_invalid());
+    if looks_like_url(&blob) || looks_like_url(&tdt) {
+        return Err(parakeet_not_a_model());
     }
 
-    if !weights.exists() {
+    let blob_present = blob.exists();
+    let tdt_ok = crate::install::parakeet_tdt_layout_ok(&tdt);
+    if !blob_present && !tdt_ok {
+        return Err(parakeet_not_installed());
+    }
+
+    #[cfg(not(feature = "parakeet"))]
+    {
+        let _ = wav;
         return Err(SottoError::app(
-            "ENGINE_NOT_INSTALLED",
-            "Parakeet TDT weights are not installed on this Mac.",
+            "ENGINE_NOT_BUILT",
+            "Local Parakeet inference is not compiled into this build.",
             true,
-            "Install the local model file. Sotto will not download it or use the cloud.",
+            "Build with the `parakeet` feature to transcribe with local weights.",
         ));
     }
 
-    // Weights are on disk but the on-device Parakeet runtime is not compiled
-    // into this build. Never fall back to cloud; never download; never replay
-    // the fixture as if it were Parakeet.
-    Err(SottoError::app(
-        "ENGINE_NOT_BUILT",
-        "Local Parakeet inference is not compiled into this build.",
-        true,
-        "Build with the Parakeet runtime to transcribe with local weights.",
-    ))
+    #[cfg(feature = "parakeet")]
+    {
+        if !tdt_ok {
+            return Err(parakeet_not_a_model());
+        }
+        crate::stt_parakeet::transcribe_tdt(wav, &tdt)
+    }
 }
 
 #[cfg(feature = "whisper")]
@@ -249,9 +290,9 @@ fn run_whisper_inference(
     ))
 }
 
-/// Decode a mono 16-bit PCM WAV into f32 samples for whisper-rs.
-#[cfg(feature = "whisper")]
-fn pcm_f32_from_wav(wav: &[u8]) -> Result<Vec<f32>> {
+/// Decode a mono 16-bit PCM WAV into f32 samples for local STT.
+#[cfg(any(feature = "whisper", feature = "parakeet"))]
+pub(crate) fn pcm_f32_from_wav(wav: &[u8]) -> Result<Vec<f32>> {
     if wav.len() < 44 || !wav.starts_with(b"RIFF") || &wav[8..12] != b"WAVE" {
         return Err(SottoError::app(
             "AUDIO_INVALID",

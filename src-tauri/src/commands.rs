@@ -605,3 +605,8 @@ pub fn meeting_detect_set(
 pub fn system_tap_get() -> String {
     crate::system_tap_status().to_string()
 }
+
+#[tauri::command]
+pub fn parakeet_runtime_get() -> String {
+    crate::parakeet_runtime_status().to_string()
+}

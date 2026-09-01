@@ -8,7 +8,7 @@ Sotto is a **local-first meeting recorder**. Headline: a meeting recorded on thi
 
 PR 0 (shipped): fixture capture → AES-GCM → fixture-replay → FTS5 → delete-all.
 
-**Current DAG wave: 31–32 (`mixed-capture`).** Mix system+mic; never fall back to mic-only. See `docs/PR_PLAN.md`.
+**Current DAG wave: 33–34 (`parakeet-runtime`).** On-device Parakeet decode; never replay CONSULT-001 as Parakeet. See `docs/PR_PLAN.md`.
 
 ## Commands
 

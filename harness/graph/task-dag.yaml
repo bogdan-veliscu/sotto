@@ -256,3 +256,19 @@ waves:
       - id: T32-mix-pcm
         summary: mix_pcm saturating-average of both lanes
         contract_tests: [CT-mix-pcm]
+  - id: 33
+    spec: parakeet-runtime
+    name: runtime-status
+    depends_on: [32]
+    tasks:
+      - id: T33-status
+        summary: parakeet_runtime_status is not-built unless a decoder is compiled in
+        contract_tests: [CT-parakeet-runtime-status]
+  - id: 34
+    spec: parakeet-runtime
+    name: not-fixture
+    depends_on: [33]
+    tasks:
+      - id: T34-not-fixture
+        summary: Parakeet transcribe never returns CONSULT-001 golden text
+        contract_tests: [CT-parakeet-not-fixture]

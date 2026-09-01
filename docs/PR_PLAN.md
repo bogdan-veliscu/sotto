@@ -38,23 +38,23 @@ Capture before STT. Whisper before Parakeet so there is always one real local en
 
 Still no bot, no silent cloud, no calendar sync.
 
-## Complete product (after A–E)
+## Complete product (after A–G)
 
-v1 PRs 0–6 plus Waves A–E are on `main`. The PRD still requires **system audio** and **two working local engines**. Do not skip; do not parallelize.
+v1 PRs 0–6 plus Waves A–G (`#7`–`#13`) are on `main`. System audio and mixed capture shipped. The PRD still needs **two working local engines** (Parakeet decode, not only install), **STT off the UI thread**, and a **desk source picker**. Do not skip; do not parallelize.
 
 | PR | Branch | Spec | What ships | Merge gate |
 |----|--------|------|------------|------------|
-| **F** | `feat/system-audio` | `system-audio` | ScreenCaptureKit tap on macOS. Status is `needs-permission` or `available`. Never fakes CONSULT-001. Linux stays `CAPTURE_UNSUPPORTED`. | `CT-system-tap-status`, `CT-system-not-fixture` |
-| **G** | `feat/mixed-capture` | `mixed-capture` | Mix system + mic into `ChunkedRecorder`. Mixed must not silently drop to mic-only. | `CT-mixed-not-mic-only`, `CT-mix-pcm` |
-| **H** | `feat/parakeet-runtime` | `parakeet-runtime` | On-device Parakeet decode. Missing runtime stays `ENGINE_NOT_BUILT`. Never replay the fixture as Parakeet. | parakeet-runtime CTs |
+| **F** | `feat/system-audio` | `system-audio` | ScreenCaptureKit tap on macOS. **Shipped** (`#12`). | `CT-system-tap-status`, `CT-system-not-fixture` |
+| **G** | `feat/mixed-capture` | `mixed-capture` | Mix system + mic. Never mic-only fallback. **Shipped** (`#13`). | `CT-mixed-not-mic-only`, `CT-mix-pcm` |
+| **H** | `feat/parakeet-runtime` | `parakeet-runtime` | On-device Parakeet decode. Missing runtime stays `ENGINE_NOT_BUILT`. Never replay the fixture as Parakeet. | `CT-parakeet-runtime-status`, `CT-parakeet-not-fixture` |
 | **I** | `feat/stt-worker` | `stt-worker` | Batch transcribe off the Tauri command thread so the desk/HUD stay live. | stt-worker CTs |
 | **J** | `feat/source-picker` | `source-picker` | Desk chooses system / mic / mixed. Permission copy. Consent still required. | source-picker CTs |
 
-**PRs remaining: 5. Features: 5.** One spec per PR.
+**PRs remaining: 3. Features: 3.** One spec per PR.
 
-Order: tap before mix. Mix before source picker. Whisper already runs; Parakeet runtime can proceed after F (does not depend on mix). STT worker can proceed after H so both engines use it — or after F if we only move Whisper first. Prefer **F → G → H → I → J**.
+Order: **H → I → J**. Parakeet before the worker so both engines share the worker. Source picker last so mixed/system are real before the desk exposes them.
 
-Still out of scope here: meeting bot, cloud STT default, calendar, teams, Windows/Linux, notarization, streaming STT, diarization.
+Still out of scope: meeting bot, cloud STT default, calendar, teams, Windows/Linux, notarization, streaming STT, diarization.
 
 ## Explicit non-goals in these six PRs
 

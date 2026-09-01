@@ -13,7 +13,7 @@ Each engine must eventually implement: availability, install/download, health, v
 | id | Role |
 |---|---|
 | `fixture-replay` | Always-ready local demo. Golden transcript. |
-| `parakeet-tdt-0.6b-v3` | Planned default local model. Not installed. |
+| `parakeet-tdt-0.6b-v3` | Second local engine. Decode when `parakeet` is compiled. Real weights are a local TDT directory, not the checksum test blob. |
 | `whisper-large-v3-turbo` | Planned robustness baseline. Not installed. Local weights, not the API. |
 
 ## Selection policy
