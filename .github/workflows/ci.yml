@@ -8,6 +8,8 @@ on:
 jobs:
   contract:
     runs-on: ubuntu-latest
+    env:
+      SOTTO_JUDGE_KEYSTORE: isolated-file
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
