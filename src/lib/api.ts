@@ -96,6 +96,7 @@ export const api = {
     }>('meeting_detect_set', { enabled }),
   tapStatus: () => call<string>('system_tap_get'),
   parakeetRuntime: () => call<string>('parakeet_runtime_get'),
+  sourceHint: (source: string) => call<string>('capture_source_hint', { source }),
 };
 
 export function formatClock(ms: number): string {

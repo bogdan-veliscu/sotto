@@ -18,7 +18,7 @@ mod store;
 pub mod stt;
 #[cfg(feature = "parakeet")]
 mod stt_parakeet;
-pub use capture::{mix_pcm, system_tap_status};
+pub use capture::{mix_pcm, source_permission_hint, system_tap_status, CaptureSource};
 pub use engines::{catalog, Engine, InstallState};
 pub use error::SottoError;
 pub use store::Store;
@@ -147,6 +147,7 @@ pub fn run() {
             commands::meeting_detect_set,
             commands::system_tap_get,
             commands::parakeet_runtime_get,
+            commands::capture_source_hint,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Sotto");

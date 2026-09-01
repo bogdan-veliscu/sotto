@@ -71,12 +71,57 @@ pub enum CaptureSource {
 }
 
 impl CaptureSource {
-    pub fn parse(raw: &str) -> Self {
-        match raw {
-            "system" => Self::System,
-            "mic" => Self::Mic,
-            _ => Self::Mixed,
+    pub fn try_parse(raw: &str) -> Result<Self> {
+        match raw.trim() {
+            "system" => Ok(Self::System),
+            "mic" => Ok(Self::Mic),
+            "mixed" => Ok(Self::Mixed),
+            _ => Err(SottoError::app(
+                "SOURCE_UNKNOWN",
+                format!("Capture source {raw:?} is not mic, system, or mixed."),
+                true,
+                "Pick microphone, what you hear, or mixed. Consent is still required.",
+            )),
         }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::System => "system",
+            Self::Mic => "mic",
+            Self::Mixed => "mixed",
+        }
+    }
+}
+
+/// Desk copy for the chosen capture lane. Always requires consent.
+/// Mixed never claims a microphone-only fallback.
+pub fn source_permission_hint(source: CaptureSource, tap_status: &str) -> String {
+    match source {
+        CaptureSource::Mic => {
+            "Microphone access is required. Consent is still required.".into()
+        }
+        CaptureSource::System => match tap_status {
+            "available" => {
+                "Screen Recording is granted. Consent is still required.".into()
+            }
+            "needs-permission" => {
+                "Grant Screen Recording in System Settings. Consent is still required."
+                    .into()
+            }
+            _ => "System audio is not available here. Consent is still required.".into(),
+        },
+        CaptureSource::Mixed => match tap_status {
+            "available" => {
+                "Needs Screen Recording and the microphone. Mixed will not fall back to mic-only. Consent is still required.".into()
+            }
+            "needs-permission" => {
+                "Grant Screen Recording. Mixed also needs the microphone and will not fall back to mic-only. Consent is still required.".into()
+            }
+            _ => {
+                "Mixed needs Screen Recording and the microphone. It will not record microphone only. Consent is still required.".into()
+            }
+        },
     }
 }
 

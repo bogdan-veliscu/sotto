@@ -391,7 +391,26 @@
     },
     {"id": "SPEC-STT-WORKER", "type": "spec", "kiro_name": "stt-worker", "wave": [35, 36]},
     {"id": "CT-stt-worker-releases-lock", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
-    {"id": "CT-stt-worker-same-result", "type": "contract_test", "path": "src-tauri/tests/contract.rs"}
+    {"id": "CT-stt-worker-same-result", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {
+      "id": "INV-SOURCE-KNOWN",
+      "type": "invariant",
+      "severity": "HIGH",
+      "control_id": "CONTROL_SOURCE_KNOWN",
+      "statement": "Capture source is only mic, system, or mixed.",
+      "ears": "WHEN a capture source is parsed, THE SYSTEM SHALL accept only mic, system, or mixed. Any other value SHALL return SOURCE_UNKNOWN recoverable."
+    },
+    {
+      "id": "INV-SOURCE-CONSENT-COPY",
+      "type": "invariant",
+      "severity": "HIGH",
+      "control_id": "CONTROL_SOURCE_CONSENT_COPY",
+      "statement": "Source permission copy requires consent and mixed never claims mic-only fallback.",
+      "ears": "WHEN source_permission_hint runs, THE SYSTEM SHALL mention consent is still required. Mixed SHALL say it will not fall back to microphone-only."
+    },
+    {"id": "SPEC-SOURCE-PICKER", "type": "spec", "kiro_name": "source-picker", "wave": [37, 38]},
+    {"id": "CT-source-unknown", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {"id": "CT-source-permission-copy", "type": "contract_test", "path": "src-tauri/tests/contract.rs"}
   ],
   "edges": [
     {"from": "AudioAsset", "to": "Session", "rel": "REFERENCES"},
@@ -478,6 +497,10 @@
     {"from": "INV-STT-WORKER-LOCK", "to": "CT-stt-worker-releases-lock", "rel": "ENFORCED_BY"},
     {"from": "INV-STT-WORKER-RESULT", "to": "CT-stt-worker-same-result", "rel": "ENFORCED_BY"},
     {"from": "SPEC-STT-WORKER", "to": "CT-stt-worker-releases-lock", "rel": "COVERS"},
-    {"from": "SPEC-STT-WORKER", "to": "CT-stt-worker-same-result", "rel": "COVERS"}
+    {"from": "SPEC-STT-WORKER", "to": "CT-stt-worker-same-result", "rel": "COVERS"},
+    {"from": "INV-SOURCE-KNOWN", "to": "CT-source-unknown", "rel": "ENFORCED_BY"},
+    {"from": "INV-SOURCE-CONSENT-COPY", "to": "CT-source-permission-copy", "rel": "ENFORCED_BY"},
+    {"from": "SPEC-SOURCE-PICKER", "to": "CT-source-unknown", "rel": "COVERS"},
+    {"from": "SPEC-SOURCE-PICKER", "to": "CT-source-permission-copy", "rel": "COVERS"}
   ]
 }

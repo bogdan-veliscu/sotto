@@ -105,8 +105,11 @@ pub fn sessions_get(
 #[tauri::command]
 pub fn recorder_start(state: State<AppState>, args: StartArgs) -> Result<Session, ErrorBody> {
     let store = state.store.lock().unwrap();
-    let source = args.source.unwrap_or_else(|| "mixed".into());
-    let session = store.create_session(args.title, &source).map_err(map_err)?;
+    let source = crate::capture::CaptureSource::try_parse(args.source.as_deref().unwrap_or("mic"))
+        .map_err(map_err)?;
+    let session = store
+        .create_session(args.title, source.as_str())
+        .map_err(map_err)?;
     Ok(session)
 }
 
@@ -130,7 +133,7 @@ pub fn recorder_begin(
         let store = state.store.lock().unwrap();
         let session = store.get_session(&session_id).map_err(map_err)?;
         (
-            CaptureSource::parse(&session.source),
+            CaptureSource::try_parse(&session.source).map_err(map_err)?,
             store.live_dir(&session_id),
         )
     };
@@ -626,4 +629,13 @@ pub fn system_tap_get() -> String {
 #[tauri::command]
 pub fn parakeet_runtime_get() -> String {
     crate::parakeet_runtime_status().to_string()
+}
+
+#[tauri::command]
+pub fn capture_source_hint(source: String) -> Result<String, ErrorBody> {
+    let src = crate::capture::CaptureSource::try_parse(&source).map_err(map_err)?;
+    Ok(crate::capture::source_permission_hint(
+        src,
+        crate::system_tap_status(),
+    ))
 }
