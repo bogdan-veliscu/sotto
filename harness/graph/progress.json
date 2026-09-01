@@ -1,1 +1,1 @@
-{"current_wave": 22, "completed_nodes": ["SPEC-STORE", "SPEC-CAPTURE", "SPEC-SEARCH", "SPEC-LIVE", "SPEC-STT", "SPEC-INSTALL", "SPEC-NOTES", "SPEC-FILTERS", "SPEC-HARDEN", "SPEC-DESK", "SPEC-LIVE-RECORD"], "notes": "Wave B live-record GREEN. Fixture remains on make demo."}
+{"current_wave": 24, "completed_nodes": ["SPEC-STORE", "SPEC-CAPTURE", "SPEC-SEARCH", "SPEC-LIVE", "SPEC-STT", "SPEC-INSTALL", "SPEC-NOTES", "SPEC-FILTERS", "SPEC-HARDEN", "SPEC-DESK", "SPEC-LIVE-RECORD", "SPEC-PRESENCE"], "notes": "Wave C presence GREEN. Login item is LaunchAgent; HUD + tray on desktop."}

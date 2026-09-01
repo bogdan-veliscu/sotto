@@ -446,3 +446,23 @@ fn ct_fixture_audio_mismatch() {
     assert_eq!(err.code(), "FIXTURE_AUDIO_MISMATCH");
     assert!(err.recoverable());
 }
+
+#[test]
+fn ct_hud_recording() {
+    let live = sotto_lib::presence::hud_from_status("recording", 65_000);
+    assert!(live.led_on);
+    assert!(!live.paused);
+    assert_eq!(live.clock, "01:05");
+    assert_eq!(live.caption, "on this Mac");
+    let paused = sotto_lib::presence::hud_from_status("paused", 1_000);
+    assert!(paused.paused);
+    assert!(!paused.led_on);
+    assert_eq!(paused.clock, "00:01");
+}
+
+#[test]
+fn ct_login_item_backend() {
+    let backend = sotto_lib::presence::login_item_backend();
+    assert_eq!(backend == "smappservice", cfg!(target_os = "macos"));
+    assert_eq!(backend == "unsupported", !cfg!(target_os = "macos"));
+}

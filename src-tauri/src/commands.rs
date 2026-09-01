@@ -2,11 +2,13 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 
 use serde::Deserialize;
-use tauri::State;
+use serde::Serialize;
+use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::capture::{start_live, CaptureSource, LiveSession};
 use crate::engines::Engine;
 use crate::error::{ErrorBody, SottoError};
+use crate::presence::{hud_from_status, login_item_backend, HudView};
 use crate::store::{SearchHit, Session, SessionDetail, Store};
 
 pub struct AppState {
@@ -16,6 +18,29 @@ pub struct AppState {
 
 fn map_err(err: crate::error::SottoError) -> ErrorBody {
     err.into()
+}
+
+fn push_hud(app: &AppHandle, status: &str, elapsed_ms: u64) {
+    let view = hud_from_status(status, elapsed_ms);
+    let _ = app.emit("sotto://hud", &view);
+    if let Some(w) = app.get_webview_window("hud") {
+        if view.led_on || view.paused {
+            if let Ok(Some(monitor)) = w.primary_monitor() {
+                let size = monitor.size();
+                let scale = monitor.scale_factor();
+                let width = 240.0 * scale;
+                let x = (f64::from(size.width) - width) / 2.0;
+                let y = 8.0 * scale;
+                let _ = w.set_position(tauri::PhysicalPosition::new(
+                    x.round() as i32,
+                    y.round() as i32,
+                ));
+            }
+            let _ = w.show();
+        } else {
+            let _ = w.hide();
+        }
+    }
 }
 
 #[derive(Deserialize)]
@@ -94,7 +119,11 @@ pub fn recorder_consent(state: State<AppState>, session_id: String) -> Result<Se
 }
 
 #[tauri::command]
-pub fn recorder_begin(state: State<AppState>, session_id: String) -> Result<Session, ErrorBody> {
+pub fn recorder_begin(
+    app: AppHandle,
+    state: State<AppState>,
+    session_id: String,
+) -> Result<Session, ErrorBody> {
     let (source, dir) = {
         let store = state.store.lock().unwrap();
         let session = store.get_session(&session_id).map_err(map_err)?;
@@ -111,37 +140,54 @@ pub fn recorder_begin(state: State<AppState>, session_id: String) -> Result<Sess
         .start_recording(&session_id)
         .map_err(map_err)?;
     state.live.lock().unwrap().insert(session_id, live);
+    push_hud(&app, &session.status, 0);
     Ok(session)
 }
 
 #[tauri::command]
-pub fn recorder_pause(state: State<AppState>, session_id: String) -> Result<Session, ErrorBody> {
+pub fn recorder_pause(
+    app: AppHandle,
+    state: State<AppState>,
+    session_id: String,
+) -> Result<Session, ErrorBody> {
     if let Some(live) = state.live.lock().unwrap().get(&session_id) {
         live.pause().map_err(map_err)?;
     }
-    state
+    let session = state
         .store
         .lock()
         .unwrap()
         .pause_recording(&session_id)
-        .map_err(map_err)
+        .map_err(map_err)?;
+    push_hud(&app, &session.status, 0);
+    Ok(session)
 }
 
 #[tauri::command]
-pub fn recorder_resume(state: State<AppState>, session_id: String) -> Result<Session, ErrorBody> {
+pub fn recorder_resume(
+    app: AppHandle,
+    state: State<AppState>,
+    session_id: String,
+) -> Result<Session, ErrorBody> {
     if let Some(live) = state.live.lock().unwrap().get(&session_id) {
         live.resume().map_err(map_err)?;
     }
-    state
+    let session = state
         .store
         .lock()
         .unwrap()
         .resume_recording(&session_id)
-        .map_err(map_err)
+        .map_err(map_err)?;
+    push_hud(&app, &session.status, 0);
+    Ok(session)
 }
 
 #[tauri::command]
-pub fn recorder_stop(state: State<AppState>, session_id: String) -> Result<Session, ErrorBody> {
+pub fn recorder_stop(
+    app: AppHandle,
+    state: State<AppState>,
+    session_id: String,
+) -> Result<Session, ErrorBody> {
     let live = state
         .live
         .lock()
@@ -155,12 +201,14 @@ pub fn recorder_stop(state: State<AppState>, session_id: String) -> Result<Sessi
                 "Start a recording from the desk. Stop never falls back to the golden fixture.",
             ))
         })?;
-    state
+    let session = state
         .store
         .lock()
         .unwrap()
         .finalize_live(&session_id, live)
-        .map_err(map_err)
+        .map_err(map_err)?;
+    push_hud(&app, "idle", 0);
+    Ok(session)
 }
 
 #[tauri::command]
@@ -338,4 +386,83 @@ pub fn retention_apply(state: State<AppState>) -> Result<u32, ErrorBody> {
         .unwrap()
         .apply_retention()
         .map_err(map_err)
+}
+
+#[derive(Serialize)]
+pub struct LoginItemReport {
+    pub backend: String,
+    pub requested: bool,
+    pub applied: bool,
+}
+
+#[tauri::command]
+pub fn presence_login_get(state: State<AppState>) -> Result<LoginItemReport, ErrorBody> {
+    let requested = state
+        .store
+        .lock()
+        .unwrap()
+        .get_setting("launch_at_login")
+        .map_err(map_err)?
+        .as_deref()
+        == Some("on");
+    Ok(LoginItemReport {
+        backend: login_item_backend().to_string(),
+        requested,
+        applied: requested && login_item_backend() == "smappservice",
+    })
+}
+
+#[tauri::command]
+pub fn presence_login_set(
+    app: AppHandle,
+    state: State<AppState>,
+    enabled: bool,
+) -> Result<LoginItemReport, ErrorBody> {
+    state
+        .store
+        .lock()
+        .unwrap()
+        .set_setting("launch_at_login", if enabled { "on" } else { "off" })
+        .map_err(map_err)?;
+    let mut applied = false;
+    #[cfg(target_os = "macos")]
+    {
+        use tauri_plugin_autostart::ManagerExt;
+        let auto = app.autolaunch();
+        if enabled {
+            auto.enable().map_err(|e| {
+                map_err(SottoError::app(
+                    "PRESENCE_UNSUPPORTED",
+                    format!("Could not register the login item ({e})"),
+                    true,
+                    "Allow Sotto in Login Items & Extensions. Recording still starts only after consent.",
+                ))
+            })?;
+            applied = true;
+        } else {
+            let _ = auto.disable();
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = &app;
+        if enabled {
+            return Err(map_err(SottoError::app(
+                "PRESENCE_UNSUPPORTED",
+                "Login item is macOS only.",
+                true,
+                "The preference is saved. On this Mac, Sotto can open at login.",
+            )));
+        }
+    }
+    Ok(LoginItemReport {
+        backend: login_item_backend().to_string(),
+        requested: enabled,
+        applied,
+    })
+}
+
+#[tauri::command]
+pub fn presence_hud(status: String, elapsed_ms: u64) -> HudView {
+    hud_from_status(&status, elapsed_ms)
 }

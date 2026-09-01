@@ -176,3 +176,19 @@ waves:
       - id: T22-desk-live
         summary: recorder_stop + mic begin; fixture-replay rejects live audio
         contract_tests: [CT-fixture-audio-mismatch]
+  - id: 23
+    spec: presence
+    name: hud-model
+    depends_on: [22]
+    tasks:
+      - id: T23-hud-model
+        summary: hud_from_status LED and clock
+        contract_tests: [CT-hud-recording]
+  - id: 24
+    spec: presence
+    name: login-tray
+    depends_on: [23]
+    tasks:
+      - id: T24-login-tray
+        summary: login-item backend + settings + tray/HUD
+        contract_tests: [CT-login-item-backend]

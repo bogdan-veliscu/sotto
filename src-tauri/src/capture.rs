@@ -1,6 +1,8 @@
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
+use std::thread::{self, JoinHandle};
 
 use crate::error::{Result, SottoError};
 
@@ -44,7 +46,7 @@ pub struct CaptureResult {
     pub duration_ms: u64,
 }
 
-fn capture_unsupported(what: &str) -> SottoError {
+fn capture_unsupported(what: impl std::fmt::Display) -> SottoError {
     SottoError::app(
         "CAPTURE_UNSUPPORTED",
         format!("{what} capture backend is not available on this platform"),
@@ -302,25 +304,20 @@ impl Drop for ChunkedRecorder {
     }
 }
 
-/// Live capture handle. The CPAL stream (macOS mic) is optional; tests inject
-/// PCM through `ChunkedRecorder` instead of calling `start_live(Mic)`.
+/// Live capture handle. The CPAL stream lives on a dedicated thread because
+/// `cpal::Stream` is not `Send`. Tests inject PCM through `injected`.
 pub struct LiveSession {
     rec: Arc<Mutex<ChunkedRecorder>>,
-    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
-    stream: Option<MicKeepAlive>,
+    stop: Option<mpsc::Sender<()>>,
+    worker: Option<JoinHandle<()>>,
 }
-
-#[cfg(target_os = "macos")]
-#[allow(dead_code)]
-struct MicKeepAlive(cpal::Stream);
-#[cfg(not(target_os = "macos"))]
-struct MicKeepAlive;
 
 impl LiveSession {
     fn from_recorder(rec: ChunkedRecorder) -> Self {
         Self {
             rec: Arc::new(Mutex::new(rec)),
-            stream: None,
+            stop: None,
+            worker: None,
         }
     }
 
@@ -331,47 +328,35 @@ impl LiveSession {
     }
 
     pub fn pause(&self) -> Result<()> {
-        self.rec
-            .lock()
-            .map_err(|_| {
-                SottoError::app(
-                    "CAPTURE_LOCK",
-                    "capture lock poisoned",
-                    true,
-                    "Stop and record again.",
-                )
-            })?
-            .pause()
+        lock_rec(&self.rec)?.pause()
     }
 
     pub fn resume(&self) -> Result<()> {
-        self.rec
-            .lock()
-            .map_err(|_| {
-                SottoError::app(
-                    "CAPTURE_LOCK",
-                    "capture lock poisoned",
-                    true,
-                    "Stop and record again.",
-                )
-            })?
-            .resume()
+        lock_rec(&self.rec)?.resume()
     }
 
     pub fn finish(self) -> Result<CaptureResult> {
-        drop(self.stream);
-        self.rec
-            .lock()
-            .map_err(|_| {
-                SottoError::app(
-                    "CAPTURE_LOCK",
-                    "capture lock poisoned",
-                    true,
-                    "Stop and record again.",
-                )
-            })?
-            .finish()
+        if let Some(tx) = &self.stop {
+            let _ = tx.send(());
+        }
+        if let Some(worker) = self.worker {
+            let _ = worker.join();
+        }
+        lock_rec(&self.rec)?.finish()
     }
+}
+
+fn lock_rec(
+    rec: &Arc<Mutex<ChunkedRecorder>>,
+) -> Result<std::sync::MutexGuard<'_, ChunkedRecorder>> {
+    rec.lock().map_err(|_| {
+        SottoError::app(
+            "CAPTURE_LOCK",
+            "capture lock poisoned",
+            true,
+            "Stop and record again.",
+        )
+    })
 }
 
 fn start_mic(dir: &Path) -> Result<LiveSession> {
@@ -387,11 +372,39 @@ fn start_mic(dir: &Path) -> Result<LiveSession> {
             ..CaptureConfig::default()
         };
         let sample_rate = cfg.sample_rate;
-        let rec = ChunkedRecorder::start(dir, cfg)?;
-        let mut session = LiveSession::from_recorder(rec);
-        let stream = crate::capture_mic::start_input_stream(Arc::clone(&session.rec), sample_rate)?;
-        session.stream = Some(MicKeepAlive(stream));
-        Ok(session)
+        let rec = Arc::new(Mutex::new(ChunkedRecorder::start(dir, cfg)?));
+        let rec_thread = Arc::clone(&rec);
+        let (stop_tx, stop_rx) = mpsc::channel::<()>();
+        let (ready_tx, ready_rx) = mpsc::channel();
+        let worker = thread::Builder::new()
+            .name("sotto-mic".into())
+            .spawn(
+                move || match crate::capture_mic::start_input_stream(rec_thread, sample_rate) {
+                    Ok(_stream) => {
+                        let _ = ready_tx.send(Ok(()));
+                        let _ = stop_rx.recv();
+                    }
+                    Err(err) => {
+                        let _ = ready_tx.send(Err(err.to_string()));
+                    }
+                },
+            )
+            .map_err(|e| capture_unsupported(e))?;
+        match ready_rx.recv() {
+            Ok(Ok(())) => Ok(LiveSession {
+                rec,
+                stop: Some(stop_tx),
+                worker: Some(worker),
+            }),
+            Ok(Err(msg)) => {
+                let _ = worker.join();
+                Err(capture_unsupported(msg))
+            }
+            Err(_) => {
+                let _ = worker.join();
+                Err(capture_unsupported("Microphone"))
+            }
+        }
     }
 }
 

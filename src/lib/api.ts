@@ -71,6 +71,12 @@ export const api = {
   deleteAll: () => call<void>('data_delete_all'),
   keyReport: () => call<{ backend: string; key_len: number; fingerprint: string }>('key_report'),
   applyRetention: () => call<number>('retention_apply'),
+  loginGet: () =>
+    call<{ backend: string; requested: boolean; applied: boolean }>('presence_login_get'),
+  loginSet: (enabled: boolean) =>
+    call<{ backend: string; requested: boolean; applied: boolean }>('presence_login_set', {
+      enabled,
+    }),
 };
 
 export function formatClock(ms: number): string {
