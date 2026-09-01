@@ -315,7 +315,26 @@
     },
     {"id": "SPEC-MEETING-DETECT", "type": "spec", "kiro_name": "meeting-detect", "wave": [27, 28]},
     {"id": "CT-meeting-detect-apps", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
-    {"id": "CT-meeting-never-silent", "type": "contract_test", "path": "src-tauri/tests/contract.rs"}
+    {"id": "CT-meeting-never-silent", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {
+      "id": "INV-SYSTEM-TAP-STATUS",
+      "type": "invariant",
+      "severity": "HIGH",
+      "control_id": "CONTROL_SYSTEM_TAP_STATUS",
+      "statement": "System-audio tap status is platform-honest.",
+      "ears": "WHEN system_tap_status runs off macOS, THE SYSTEM SHALL return unsupported. WHEN on macOS, THE SYSTEM SHALL return unsupported, needs-permission, or available."
+    },
+    {
+      "id": "INV-SYSTEM-NOT-FIXTURE",
+      "type": "invariant",
+      "severity": "HIGH",
+      "control_id": "CONTROL_SYSTEM_NOT_FIXTURE",
+      "statement": "System capture never fakes CONSULT-001.",
+      "ears": "WHEN start_live(System) cannot capture, THE SYSTEM SHALL return CAPTURE_UNSUPPORTED recoverable. WHEN it can, THE SYSTEM SHALL NOT write CONSULT-001 bytes."
+    },
+    {"id": "SPEC-SYSTEM-AUDIO", "type": "spec", "kiro_name": "system-audio", "wave": [29, 30]},
+    {"id": "CT-system-tap-status", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {"id": "CT-system-not-fixture", "type": "contract_test", "path": "src-tauri/tests/contract.rs"}
   ],
   "edges": [
     {"from": "AudioAsset", "to": "Session", "rel": "REFERENCES"},
@@ -386,6 +405,10 @@
     {"from": "INV-MEETING-DETECT", "to": "CT-meeting-detect-apps", "rel": "ENFORCED_BY"},
     {"from": "INV-MEETING-ASK", "to": "CT-meeting-never-silent", "rel": "ENFORCED_BY"},
     {"from": "SPEC-MEETING-DETECT", "to": "CT-meeting-detect-apps", "rel": "COVERS"},
-    {"from": "SPEC-MEETING-DETECT", "to": "CT-meeting-never-silent", "rel": "COVERS"}
+    {"from": "SPEC-MEETING-DETECT", "to": "CT-meeting-never-silent", "rel": "COVERS"},
+    {"from": "INV-SYSTEM-TAP-STATUS", "to": "CT-system-tap-status", "rel": "ENFORCED_BY"},
+    {"from": "INV-SYSTEM-NOT-FIXTURE", "to": "CT-system-not-fixture", "rel": "ENFORCED_BY"},
+    {"from": "SPEC-SYSTEM-AUDIO", "to": "CT-system-tap-status", "rel": "COVERS"},
+    {"from": "SPEC-SYSTEM-AUDIO", "to": "CT-system-not-fixture", "rel": "COVERS"}
   ]
 }

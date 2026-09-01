@@ -1,6 +1,8 @@
 pub mod capture;
 #[cfg(target_os = "macos")]
 mod capture_mic;
+#[cfg(target_os = "macos")]
+mod capture_system;
 mod crypto;
 mod engines;
 mod error;
@@ -13,6 +15,7 @@ pub mod presence;
 pub mod search;
 mod store;
 pub mod stt;
+pub use capture::system_tap_status;
 pub use engines::{catalog, Engine, InstallState};
 pub use error::SottoError;
 pub use store::Store;
@@ -138,6 +141,7 @@ pub fn run() {
             commands::hotkey_set,
             commands::meeting_detect_get,
             commands::meeting_detect_set,
+            commands::system_tap_get,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Sotto");

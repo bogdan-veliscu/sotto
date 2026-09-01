@@ -34,6 +34,7 @@
   let hotkeyShortcut = $state('CommandOrControl+Shift+Space');
   let hotkeyMode = $state('toggle');
   let meetingDetect = $state(false);
+  let tapStatus = $state('unsupported');
   let meetingAskOpen = $state(false);
   let meetingCopy = $state('');
   let ignoredKinds = $state<string[]>([]);
@@ -254,6 +255,7 @@
     hotkeyMode = hotkey.mode;
     const meeting = await api.meetingGet();
     meetingDetect = meeting.enabled;
+    tapStatus = await api.tapStatus();
   }
 
   async function saveHotkey() {
@@ -668,6 +670,11 @@
         >
           {meetingDetect ? 'Turn off' : 'Turn on'}
         </button>
+      </div>
+      <div class="engine">
+        <strong>System audio</strong>
+        <span class="mono">{tapStatus}</span>
+        <p>What you hear on this Mac via ScreenCaptureKit. Grant Screen Recording in System Settings if this says needs-permission. Tests never prompt. Record still uses the microphone until you pick system in a later wave. Consent is still required.</p>
       </div>
       <div class="engine">
         <strong>Delete all</strong>

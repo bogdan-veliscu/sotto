@@ -51,7 +51,7 @@ fn capture_unsupported(what: impl std::fmt::Display) -> SottoError {
         "CAPTURE_UNSUPPORTED",
         format!("{what} capture backend is not available on this platform"),
         true,
-        "Live hardware capture is not available. Grant microphone access for mic capture. System audio mix is not wired yet. make demo still uses the golden fixture.",
+        "Grant microphone access for mic capture, or Screen Recording for system audio. Mixed capture is a later wave. make demo still uses the golden fixture.",
     )
 }
 
@@ -408,13 +408,79 @@ fn start_mic(dir: &Path) -> Result<LiveSession> {
     }
 }
 
-/// Begin a live capture session. System-audio taps are not implemented and
-/// return `CAPTURE_UNSUPPORTED` (recoverable). On macOS, `Mic`/`Mixed` open a
-/// CPAL input stream. Elsewhere (and when no device is present) they return
-/// the same recoverable error. Tests must not call `start_live(Mic)`.
+/// Report whether a system-audio tap backend is available on this platform.
+///
+/// Possible return values:
+/// - `"unsupported"` — off macOS (no ScreenCaptureKit).
+/// - `"needs-permission"` — macOS tap compiled, Screen Recording not granted.
+/// - `"available"` — macOS tap compiled and `CGPreflightScreenCaptureAccess` is true.
+pub fn system_tap_status() -> &'static str {
+    #[cfg(not(target_os = "macos"))]
+    {
+        "unsupported"
+    }
+    #[cfg(target_os = "macos")]
+    {
+        crate::capture_system::tap_status()
+    }
+}
+
+fn start_system(dir: &Path) -> Result<LiveSession> {
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = dir;
+        return Err(capture_unsupported("System audio"));
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let cfg = CaptureConfig {
+            source: CaptureSource::System,
+            ..CaptureConfig::default()
+        };
+        let sample_rate = cfg.sample_rate;
+        let rec = Arc::new(Mutex::new(ChunkedRecorder::start(dir, cfg)?));
+        let rec_thread = Arc::clone(&rec);
+        let (stop_tx, stop_rx) = mpsc::channel::<()>();
+        let (ready_tx, ready_rx) = mpsc::channel();
+        let worker = thread::Builder::new()
+            .name("sotto-system".into())
+            .spawn(move || {
+                match crate::capture_system::start_system_stream(rec_thread, sample_rate) {
+                    Ok(_tap) => {
+                        let _ = ready_tx.send(Ok(()));
+                        let _ = stop_rx.recv();
+                    }
+                    Err(err) => {
+                        let _ = ready_tx.send(Err(err.to_string()));
+                    }
+                }
+            })
+            .map_err(|e| capture_unsupported(e))?;
+        match ready_rx.recv() {
+            Ok(Ok(())) => Ok(LiveSession {
+                rec,
+                stop: Some(stop_tx),
+                worker: Some(worker),
+            }),
+            Ok(Err(msg)) => {
+                let _ = worker.join();
+                Err(capture_unsupported(msg))
+            }
+            Err(_) => {
+                let _ = worker.join();
+                Err(capture_unsupported("System audio"))
+            }
+        }
+    }
+}
+
+/// Begin a live capture session. System-audio uses ScreenCaptureKit on macOS
+/// when Screen Recording is already granted; otherwise `CAPTURE_UNSUPPORTED`.
+/// Tests never prompt. On macOS, `Mic`/`Mixed` open a CPAL input stream.
+/// Tests must not call `start_live(Mic)`.
 pub fn start_live(source: CaptureSource, dir: &Path) -> Result<LiveSession> {
     match source {
-        CaptureSource::System => Err(capture_unsupported("System audio")),
+        CaptureSource::System => start_system(dir),
         CaptureSource::Mic | CaptureSource::Mixed => start_mic(dir),
     }
 }

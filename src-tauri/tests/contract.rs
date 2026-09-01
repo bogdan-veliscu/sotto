@@ -83,12 +83,22 @@ fn ct_demo_still_offline() {
 #[test]
 fn ct_mic_unsupported_is_recoverable() {
     let dir = tempdir().unwrap();
-    let err = match start_live(CaptureSource::System, dir.path()) {
-        Err(err) => err,
-        Ok(_) => panic!("system capture must be unsupported"),
-    };
-    assert_eq!(err.code(), "CAPTURE_UNSUPPORTED");
-    assert!(err.recoverable());
+    // On non-macOS, System capture is always unsupported (no tap backend).
+    // On macOS with a compiled tap, start_live(System) may succeed — that is
+    // also acceptable as long as it is NOT the fixture. Linux CI still proves
+    // the unsupported path because no tap backend is compiled there.
+    match start_live(CaptureSource::System, dir.path()) {
+        Err(err) => {
+            assert_eq!(err.code(), "CAPTURE_UNSUPPORTED");
+            assert!(err.recoverable());
+        }
+        Ok(_session) => {
+            // A real tap opened on macOS. The test accepts this; CT-system-not-fixture
+            // separately enforces that the bytes ≠ CONSULT-001.
+            #[cfg(not(target_os = "macos"))]
+            panic!("system capture must be unsupported on this platform");
+        }
+    }
 }
 
 #[test]
@@ -505,6 +515,65 @@ fn ct_meeting_detect_apps() {
     assert!(
         sotto_lib::meeting::classify_processes(&["Google Chrome", "Finder", "steam"]).is_empty()
     );
+}
+
+// ── Wave 29-30: system-audio ──────────────────────────────────────────────────
+
+/// CT-system-tap-status
+/// Off macOS: must be "unsupported".
+/// On macOS: must be one of "unsupported", "needs-permission", or "available".
+/// Either way it must not claim "available" without a compiled tap backend.
+#[test]
+fn ct_system_tap_status() {
+    let status = sotto_lib::system_tap_status();
+    let valid = ["unsupported", "needs-permission", "available"];
+    assert!(
+        valid.contains(&status),
+        "system_tap_status returned unknown value: {status:?}"
+    );
+    #[cfg(not(target_os = "macos"))]
+    assert_eq!(
+        status, "unsupported",
+        "off macOS must always be unsupported, got {status:?}"
+    );
+    #[cfg(target_os = "macos")]
+    {
+        assert!(
+            status == "needs-permission" || status == "available",
+            "macOS with a compiled tap must be needs-permission or available, got {status:?}"
+        );
+    }
+}
+
+/// CT-system-not-fixture
+/// start_live(System) must return CAPTURE_UNSUPPORTED (recoverable) when no
+/// tap is available, AND must never write or return CONSULT-001 bytes.
+/// On macOS with a real tap this test accepts Ok(_) — the live session bytes
+/// will differ from the fixture by construction.
+#[test]
+fn ct_system_not_fixture() {
+    let dir = tempdir().unwrap();
+    match start_live(CaptureSource::System, dir.path()) {
+        Err(err) => {
+            // No tap available: must be the canonical recoverable error.
+            assert_eq!(
+                err.code(),
+                "CAPTURE_UNSUPPORTED",
+                "System error must be CAPTURE_UNSUPPORTED, got {}",
+                err.code()
+            );
+            assert!(err.recoverable(), "CAPTURE_UNSUPPORTED must be recoverable");
+        }
+        Ok(session) => {
+            // A real tap opened. Consume it and prove the bytes ≠ CONSULT-001.
+            let result = session.finish().expect("finish live session");
+            assert_ne!(
+                result.wav.as_slice(),
+                FIXTURE_WAV,
+                "system tap must not return CONSULT-001 fixture bytes"
+            );
+        }
+    }
 }
 
 #[test]
