@@ -40,6 +40,13 @@ impl SottoError {
             Self::Json(_) => "JSON",
         }
     }
+
+    pub fn recoverable(&self) -> bool {
+        match self {
+            Self::App { recoverable, .. } => *recoverable,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Serialize)]

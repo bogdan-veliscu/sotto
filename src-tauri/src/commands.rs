@@ -1,14 +1,17 @@
+use std::collections::HashMap;
 use std::sync::Mutex;
 
 use serde::Deserialize;
 use tauri::State;
 
+use crate::capture::{start_live, CaptureSource, LiveSession};
 use crate::engines::Engine;
-use crate::error::ErrorBody;
+use crate::error::{ErrorBody, SottoError};
 use crate::store::{SearchHit, Session, SessionDetail, Store};
 
 pub struct AppState {
     pub store: Mutex<Store>,
+    pub live: Mutex<HashMap<String, LiveSession>>,
 }
 
 fn map_err(err: crate::error::SottoError) -> ErrorBody {
@@ -92,16 +95,30 @@ pub fn recorder_consent(state: State<AppState>, session_id: String) -> Result<Se
 
 #[tauri::command]
 pub fn recorder_begin(state: State<AppState>, session_id: String) -> Result<Session, ErrorBody> {
-    state
+    let (source, dir) = {
+        let store = state.store.lock().unwrap();
+        let session = store.get_session(&session_id).map_err(map_err)?;
+        (
+            CaptureSource::parse(&session.source),
+            store.live_dir(&session_id),
+        )
+    };
+    let live = start_live(source, &dir).map_err(map_err)?;
+    let session = state
         .store
         .lock()
         .unwrap()
         .start_recording(&session_id)
-        .map_err(map_err)
+        .map_err(map_err)?;
+    state.live.lock().unwrap().insert(session_id, live);
+    Ok(session)
 }
 
 #[tauri::command]
 pub fn recorder_pause(state: State<AppState>, session_id: String) -> Result<Session, ErrorBody> {
+    if let Some(live) = state.live.lock().unwrap().get(&session_id) {
+        live.pause().map_err(map_err)?;
+    }
     state
         .store
         .lock()
@@ -112,11 +129,37 @@ pub fn recorder_pause(state: State<AppState>, session_id: String) -> Result<Sess
 
 #[tauri::command]
 pub fn recorder_resume(state: State<AppState>, session_id: String) -> Result<Session, ErrorBody> {
+    if let Some(live) = state.live.lock().unwrap().get(&session_id) {
+        live.resume().map_err(map_err)?;
+    }
     state
         .store
         .lock()
         .unwrap()
         .resume_recording(&session_id)
+        .map_err(map_err)
+}
+
+#[tauri::command]
+pub fn recorder_stop(state: State<AppState>, session_id: String) -> Result<Session, ErrorBody> {
+    let live = state
+        .live
+        .lock()
+        .unwrap()
+        .remove(&session_id)
+        .ok_or_else(|| {
+            map_err(SottoError::app(
+                "CAPTURE_NOT_STARTED",
+                "No live capture is running for this session.",
+                true,
+                "Start a recording from the desk. Stop never falls back to the golden fixture.",
+            ))
+        })?;
+    state
+        .store
+        .lock()
+        .unwrap()
+        .finalize_live(&session_id, live)
         .map_err(map_err)
 }
 

@@ -44,16 +44,14 @@ pub fn decrypt(key: &[u8; KEY_LEN], packed: &[u8]) -> Result<Vec<u8>> {
     }
     let cipher = Aes256Gcm::new(key.into());
     let nonce = Nonce::from_slice(&packed[..NONCE_LEN]);
-    cipher
-        .decrypt(nonce, &packed[NONCE_LEN..])
-        .map_err(|_| {
-            SottoError::app(
-                "DECRYPT_FAILED",
-                "Could not decrypt audio with the local master key.",
-                false,
-                "The key file and the audio file must stay together.",
-            )
-        })
+    cipher.decrypt(nonce, &packed[NONCE_LEN..]).map_err(|_| {
+        SottoError::app(
+            "DECRYPT_FAILED",
+            "Could not decrypt audio with the local master key.",
+            false,
+            "The key file and the audio file must stay together.",
+        )
+    })
 }
 
 pub fn sha256_hex(bytes: &[u8]) -> String {

@@ -102,7 +102,10 @@ pub fn resolve_engine<'a>(
 }
 
 fn fixture_fallback_allowed() -> bool {
-    std::env::var(crate::stt::FIXTURE_FALLBACK_ENV).ok().as_deref() == Some("1")
+    std::env::var(crate::stt::FIXTURE_FALLBACK_ENV)
+        .ok()
+        .as_deref()
+        == Some("1")
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

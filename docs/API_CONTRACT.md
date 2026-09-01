@@ -10,8 +10,9 @@ Local Tauri IPC only.
 | `engines_list` | catalog |
 | `recorder_start` | creates session, still pending consent |
 | `recorder_consent` | acknowledge disclosure |
-| `recorder_begin` / `pause` / `resume` | status |
-| `recorder_stop_fixture` | encrypt golden WAV |
+| `recorder_begin` / `pause` / `resume` | status + live `ChunkedRecorder` |
+| `recorder_stop` | encrypt live chunks (never CONSULT-001) |
+| `recorder_stop_fixture` | encrypt golden WAV (`make demo` only) |
 | `transcribe_run` | fixture engine |
 | `sessions_list` / `sessions_get` | |
 | `search_query` | FTS5 |

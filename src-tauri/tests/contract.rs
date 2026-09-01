@@ -1,6 +1,8 @@
 use std::fs;
 
-use sotto_lib::capture::{record_sine, start_live, CaptureConfig, CaptureSource, ChunkedRecorder};
+use sotto_lib::capture::{
+    record_sine, start_live, CaptureConfig, CaptureSource, ChunkedRecorder, LiveSession,
+};
 use sotto_lib::demo_pipeline;
 use sotto_lib::install::{
     delete_model, install_bytes, overlay_catalog, parakeet_weights_path, PARAKEET_ENGINE_ID,
@@ -81,8 +83,12 @@ fn ct_demo_still_offline() {
 #[test]
 fn ct_mic_unsupported_is_recoverable() {
     let dir = tempdir().unwrap();
-    let err = start_live(CaptureSource::System, dir.path()).unwrap_err();
+    let err = match start_live(CaptureSource::System, dir.path()) {
+        Err(err) => err,
+        Ok(_) => panic!("system capture must be unsupported"),
+    };
     assert_eq!(err.code(), "CAPTURE_UNSUPPORTED");
+    assert!(err.recoverable());
 }
 
 #[test]
@@ -330,7 +336,10 @@ fn ct_keychain() {
     }
     let first = report.fingerprint.clone();
     drop(store);
-    let again = Store::open(dir.path()).unwrap().key_report().expect("reopen");
+    let again = Store::open(dir.path())
+        .unwrap()
+        .key_report()
+        .expect("reopen");
     assert_eq!(again.fingerprint, first);
     let leak = dir.path().join("audio").join("leak.wav");
     fs::create_dir_all(leak.parent().unwrap()).unwrap();
@@ -366,9 +375,7 @@ fn ct_retention() {
     store
         .set_created_at(&old.id, &(now.saturating_sub(10 * 86_400)).to_string())
         .unwrap();
-    store
-        .set_created_at(&keep.id, &now.to_string())
-        .unwrap();
+    store.set_created_at(&keep.id, &now.to_string()).unwrap();
     store.set_setting("retention_days", "7").unwrap();
     let deleted = store.apply_retention().expect("retention");
     assert!(deleted >= 1);
@@ -397,4 +404,45 @@ fn ct_filter_title() {
         .expect("title filter");
     assert_eq!(hits.len(), 1, "expected only the title match");
     assert_eq!(hits[0].session_id, hit.id);
+}
+
+#[test]
+fn ct_live_stop_not_fixture() {
+    let dir = tempdir().unwrap();
+    let store = Store::open(dir.path()).unwrap();
+    let session = store
+        .create_session(Some("Live take".into()), "mic")
+        .unwrap();
+    store.acknowledge_consent(&session.id).unwrap();
+    store.start_recording(&session.id).unwrap();
+    let rec_dir = store.live_dir(&session.id);
+    let mut rec = ChunkedRecorder::start(&rec_dir, CaptureConfig::default()).unwrap();
+    rec.write_pcm(&vec![120i16; 3_200]).unwrap();
+    let live = LiveSession::injected(rec);
+    store
+        .finalize_live(&session.id, live)
+        .expect("finalize_live");
+    assert!(
+        store.audio_is_ciphertext(&session.id).unwrap(),
+        "live audio must be encrypted"
+    );
+    let mut rec =
+        ChunkedRecorder::start(&dir.path().join("compare"), CaptureConfig::default()).unwrap();
+    rec.write_pcm(&vec![120i16; 3_200]).unwrap();
+    let captured = rec.stop().unwrap();
+    assert!(is_wav(&captured.wav));
+    assert_ne!(
+        captured.wav.as_slice(),
+        FIXTURE_WAV,
+        "chunk PCM must not be CONSULT-001"
+    );
+}
+
+#[test]
+fn ct_fixture_audio_mismatch() {
+    let dir = tempdir().unwrap();
+    let sine = record_sine(200, 16_000).unwrap();
+    let err = transcribe_local("fixture-replay", &sine.wav, dir.path()).unwrap_err();
+    assert_eq!(err.code(), "FIXTURE_AUDIO_MISMATCH");
+    assert!(err.recoverable());
 }

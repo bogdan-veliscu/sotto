@@ -1,5 +1,6 @@
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 
 use crate::error::{Result, SottoError};
 
@@ -8,6 +9,16 @@ pub enum CaptureSource {
     System,
     Mic,
     Mixed,
+}
+
+impl CaptureSource {
+    pub fn parse(raw: &str) -> Self {
+        match raw {
+            "system" => Self::System,
+            "mic" => Self::Mic,
+            _ => Self::Mixed,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -38,7 +49,7 @@ fn capture_unsupported(what: &str) -> SottoError {
         "CAPTURE_UNSUPPORTED",
         format!("{what} capture backend is not available on this platform"),
         true,
-        "Live hardware capture is not wired yet. Fixture replay still works.",
+        "Live hardware capture is not available. Grant microphone access for mic capture. System audio mix is not wired yet. make demo still uses the golden fixture.",
     )
 }
 
@@ -190,7 +201,11 @@ impl ChunkedRecorder {
         }
         fs::create_dir_all(dir)?;
         write_sample_rate(dir, cfg.sample_rate)?;
-        let chunk_ms = if cfg.chunk_ms == 0 { 1_000 } else { cfg.chunk_ms };
+        let chunk_ms = if cfg.chunk_ms == 0 {
+            1_000
+        } else {
+            cfg.chunk_ms
+        };
         let chunk_samples =
             ((u64::from(chunk_ms) * u64::from(cfg.sample_rate)) / 1000).max(1) as usize;
         Ok(Self {
@@ -249,14 +264,18 @@ impl ChunkedRecorder {
         Ok(())
     }
 
-    pub fn stop(mut self) -> Result<CaptureResult> {
-        // Fold any remaining tail into a chunk so recovery order is preserved.
+    /// Build a WAV from flushed chunks without consuming the recorder.
+    pub fn finish(&mut self) -> Result<CaptureResult> {
         self.flush()?;
         let samples = read_chunks(&self.dir)?;
         let wav = wav_from_samples(&samples, self.sample_rate);
         let duration_ms = duration_ms_for(samples.len(), self.sample_rate);
         delete_chunks(&self.dir)?;
         Ok(CaptureResult { wav, duration_ms })
+    }
+
+    pub fn stop(mut self) -> Result<CaptureResult> {
+        self.finish()
     }
 
     /// Recover a valid WAV from flushed chunks when `stop` never ran.
@@ -283,14 +302,106 @@ impl Drop for ChunkedRecorder {
     }
 }
 
-/// Begin a live capture session. System-audio taps are not implemented in this
-/// PR and return `CAPTURE_UNSUPPORTED` (recoverable). `Mic`/`Mixed` also return
-/// the same error until a hardware backend is wired in; tests never require a
-/// physical device.
-pub fn start_live(source: CaptureSource, _dir: &Path) -> Result<ChunkedRecorder> {
+/// Live capture handle. The CPAL stream (macOS mic) is optional; tests inject
+/// PCM through `ChunkedRecorder` instead of calling `start_live(Mic)`.
+pub struct LiveSession {
+    rec: Arc<Mutex<ChunkedRecorder>>,
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    stream: Option<MicKeepAlive>,
+}
+
+#[cfg(target_os = "macos")]
+#[allow(dead_code)]
+struct MicKeepAlive(cpal::Stream);
+#[cfg(not(target_os = "macos"))]
+struct MicKeepAlive;
+
+impl LiveSession {
+    fn from_recorder(rec: ChunkedRecorder) -> Self {
+        Self {
+            rec: Arc::new(Mutex::new(rec)),
+            stream: None,
+        }
+    }
+
+    /// Inject PCM without opening a microphone. Used by contract tests.
+    /// Do not call `start_live(Mic)` from tests (it prompts for the device).
+    pub fn injected(rec: ChunkedRecorder) -> Self {
+        Self::from_recorder(rec)
+    }
+
+    pub fn pause(&self) -> Result<()> {
+        self.rec
+            .lock()
+            .map_err(|_| {
+                SottoError::app(
+                    "CAPTURE_LOCK",
+                    "capture lock poisoned",
+                    true,
+                    "Stop and record again.",
+                )
+            })?
+            .pause()
+    }
+
+    pub fn resume(&self) -> Result<()> {
+        self.rec
+            .lock()
+            .map_err(|_| {
+                SottoError::app(
+                    "CAPTURE_LOCK",
+                    "capture lock poisoned",
+                    true,
+                    "Stop and record again.",
+                )
+            })?
+            .resume()
+    }
+
+    pub fn finish(self) -> Result<CaptureResult> {
+        drop(self.stream);
+        self.rec
+            .lock()
+            .map_err(|_| {
+                SottoError::app(
+                    "CAPTURE_LOCK",
+                    "capture lock poisoned",
+                    true,
+                    "Stop and record again.",
+                )
+            })?
+            .finish()
+    }
+}
+
+fn start_mic(dir: &Path) -> Result<LiveSession> {
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = dir;
+        return Err(capture_unsupported("Microphone"));
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let cfg = CaptureConfig {
+            source: CaptureSource::Mic,
+            ..CaptureConfig::default()
+        };
+        let sample_rate = cfg.sample_rate;
+        let rec = ChunkedRecorder::start(dir, cfg)?;
+        let mut session = LiveSession::from_recorder(rec);
+        let stream = crate::capture_mic::start_input_stream(Arc::clone(&session.rec), sample_rate)?;
+        session.stream = Some(MicKeepAlive(stream));
+        Ok(session)
+    }
+}
+
+/// Begin a live capture session. System-audio taps are not implemented and
+/// return `CAPTURE_UNSUPPORTED` (recoverable). On macOS, `Mic`/`Mixed` open a
+/// CPAL input stream. Elsewhere (and when no device is present) they return
+/// the same recoverable error. Tests must not call `start_live(Mic)`.
+pub fn start_live(source: CaptureSource, dir: &Path) -> Result<LiveSession> {
     match source {
         CaptureSource::System => Err(capture_unsupported("System audio")),
-        CaptureSource::Mic => Err(capture_unsupported("Microphone")),
-        CaptureSource::Mixed => Err(capture_unsupported("Mixed source")),
+        CaptureSource::Mic | CaptureSource::Mixed => start_mic(dir),
     }
 }

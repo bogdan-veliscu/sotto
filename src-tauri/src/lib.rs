@@ -1,4 +1,6 @@
 pub mod capture;
+#[cfg(target_os = "macos")]
+mod capture_mic;
 mod crypto;
 mod engines;
 mod error;
@@ -70,6 +72,7 @@ pub fn demo_pipeline(data_dir: &Path) -> error::Result<DemoReport> {
 #[cfg(feature = "desktop")]
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    use std::collections::HashMap;
     use std::fs;
     use std::sync::Mutex;
     use tauri::Manager;
@@ -86,6 +89,7 @@ pub fn run() {
             let _ = store.scrub_plaintext_temps();
             app.manage(AppState {
                 store: Mutex::new(store),
+                live: Mutex::new(HashMap::new()),
             });
             Ok(())
         })
@@ -100,6 +104,7 @@ pub fn run() {
             commands::recorder_begin,
             commands::recorder_pause,
             commands::recorder_resume,
+            commands::recorder_stop,
             commands::recorder_stop_fixture,
             commands::transcribe_run,
             commands::search_query,
