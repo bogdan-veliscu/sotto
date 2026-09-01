@@ -40,5 +40,8 @@ Interviews-before-charging stays in `docs/LAUNCH_PLAN.md` Phase 0. Soft launch m
 
 ## Roles
 
-- **Lead (Cursor):** keep this bar, steer Codex, review diffs, open/merge PRs, run the N hardware pass.
-- **Codex (`til:codex`):** implement one PR at a time from locked specs. Stop for review. Do not push. Do not rewrite EARS. Do not parallelize K–O.
+Ping-pong, not a permanent split. See `harness/dispatch/PAIR.md`.
+
+- **Driver** writes the current slice. **Navigator** tries to prove it is not launch-ready.
+- Cursor owns `gh` merges and the N hardware pass.
+- Rotation: K Codex-drive → L Cursor-drive → M Codex-drive → N Cursor-drive → O Codex-drive.
