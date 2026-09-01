@@ -288,3 +288,19 @@ waves:
       - id: T36-result
         summary: transcribe_job matches Store::transcribe; demo stays fixture-replay
         contract_tests: [CT-stt-worker-same-result]
+  - id: 37
+    spec: source-picker
+    name: known-source
+    depends_on: [36]
+    tasks:
+      - id: T37-unknown
+        summary: unknown capture source is SOURCE_UNKNOWN, not silent mixed
+        contract_tests: [CT-source-unknown]
+  - id: 38
+    spec: source-picker
+    name: consent-copy
+    depends_on: [37]
+    tasks:
+      - id: T38-copy
+        summary: permission hint requires consent; mixed will not fall back to mic-only
+        contract_tests: [CT-source-permission-copy]

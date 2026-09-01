@@ -8,7 +8,7 @@ Sotto is a **local-first meeting recorder**. Headline: a meeting recorded on thi
 
 PR 0 (shipped): fixture capture → AES-GCM → fixture-replay → FTS5 → delete-all.
 
-**Current DAG wave: 35–36 (`stt-worker`).** Batch transcribe off the Store mutex / Tauri command thread. See `docs/PR_PLAN.md`.
+**Current DAG wave: 37–38 (`source-picker`).** Desk chooses mic / system / mixed. Consent still required. See `docs/PR_PLAN.md`.
 
 ## Commands
 
