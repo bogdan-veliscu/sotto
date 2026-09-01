@@ -22,7 +22,7 @@ pub use capture::{mix_pcm, system_tap_status};
 pub use engines::{catalog, Engine, InstallState};
 pub use error::SottoError;
 pub use store::Store;
-pub use stt::parakeet_runtime_status;
+pub use stt::{parakeet_runtime_status, transcribe_job, TranscribeJob};
 
 use std::path::Path;
 

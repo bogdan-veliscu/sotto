@@ -228,16 +228,33 @@ pub fn recorder_stop_fixture(
 }
 
 #[tauri::command]
-pub fn transcribe_run(
-    state: State<AppState>,
+pub async fn transcribe_run(
+    state: State<'_, AppState>,
     session_id: String,
     model_id: Option<String>,
 ) -> Result<SessionDetail, ErrorBody> {
+    let job = state
+        .store
+        .lock()
+        .unwrap()
+        .prepare_transcribe(&session_id, model_id)
+        .map_err(map_err)?;
+    let result = tauri::async_runtime::spawn_blocking(move || crate::stt::transcribe_job(job))
+        .await
+        .map_err(|_| {
+            map_err(SottoError::app(
+                "ENGINE_WORKER_FAILED",
+                "Transcription worker did not finish.",
+                true,
+                "Try again. Audio already captured stays on this Mac.",
+            ))
+        })?
+        .map_err(map_err)?;
     state
         .store
         .lock()
         .unwrap()
-        .transcribe(&session_id, model_id)
+        .commit_transcript(&session_id, &result)
         .map_err(map_err)
 }
 

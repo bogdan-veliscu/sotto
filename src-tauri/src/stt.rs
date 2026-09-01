@@ -8,6 +8,23 @@ use crate::error::{Result, SottoError};
 pub const WHISPER_ENGINE_ID: &str = "whisper-large-v3-turbo";
 pub const FIXTURE_FALLBACK_ENV: &str = "SOTTO_ALLOW_FIXTURE_FALLBACK";
 
+/// Work for on-device inference with no Store attached.
+///
+/// Callers must drop any `Mutex<Store>` guard before running
+/// [`transcribe_job`]. The job is `Send` so the desktop command can
+/// `spawn_blocking`.
+#[derive(Debug, Clone)]
+pub struct TranscribeJob {
+    pub engine_id: String,
+    pub wav: Vec<u8>,
+    pub cache_dir: PathBuf,
+}
+
+/// Run [`transcribe_local`] without holding the Store mutex.
+pub fn transcribe_job(job: TranscribeJob) -> Result<TranscriptResult> {
+    transcribe_local(&job.engine_id, &job.wav, &job.cache_dir)
+}
+
 /// Report whether the on-device Parakeet TDT decoder is compiled into this
 /// binary.
 ///

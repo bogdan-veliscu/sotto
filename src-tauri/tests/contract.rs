@@ -729,3 +729,109 @@ fn ct_parakeet_not_fixture() {
     assert_eq!(report.engine_id, "fixture-replay");
     assert_eq!(report.network_calls, 0);
 }
+
+/// CT-stt-worker-releases-lock
+/// After prepare_transcribe, Mutex<Store> must be free so desk/HUD reads
+/// can lock while transcribe_job runs. Inference must not need Store.
+#[test]
+fn ct_stt_worker_releases_lock() {
+    use std::sync::Mutex;
+
+    let dir = tempdir().unwrap();
+    let store = Mutex::new(Store::open(dir.path()).unwrap());
+    let session_id = {
+        let s = store.lock().unwrap();
+        let session = s
+            .create_session(Some("Privilege consult".into()), "mixed")
+            .unwrap();
+        s.acknowledge_consent(&session.id).unwrap();
+        s.start_recording(&session.id).unwrap();
+        s.finalize_with_wav(&session.id, FIXTURE_WAV).unwrap();
+        session.id
+    };
+
+    let job = store
+        .lock()
+        .unwrap()
+        .prepare_transcribe(&session_id, None)
+        .expect("prepare");
+
+    {
+        let s = store
+            .try_lock()
+            .expect("store mutex must be free during inference");
+        s.list_sessions(10).expect("list during inference");
+        s.get_setting("telemetry")
+            .expect("settings during inference");
+    }
+
+    let result = sotto_lib::transcribe_job(job).expect("worker");
+    assert_eq!(result.engine_id, "fixture-replay");
+
+    let detail = store
+        .lock()
+        .unwrap()
+        .commit_transcript(&session_id, &result)
+        .expect("commit");
+    assert_eq!(detail.session.status, "transcribed");
+}
+
+/// CT-stt-worker-same-result
+/// transcribe_job on CONSULT-001 / fixture-replay matches Store::transcribe.
+/// Never CLOUD_DISABLED. demo_pipeline stays fixture-replay.
+#[test]
+fn ct_stt_worker_same_result() {
+    let worker_dir = tempdir().unwrap();
+    let worker_store = Store::open(worker_dir.path()).unwrap();
+    let worker_session = worker_store
+        .create_session(Some("Privilege consult".into()), "mixed")
+        .unwrap();
+    worker_store
+        .acknowledge_consent(&worker_session.id)
+        .unwrap();
+    worker_store.start_recording(&worker_session.id).unwrap();
+    worker_store
+        .finalize_with_wav(&worker_session.id, FIXTURE_WAV)
+        .unwrap();
+    let job = worker_store
+        .prepare_transcribe(&worker_session.id, None)
+        .expect("prepare");
+    let worker = match sotto_lib::transcribe_job(job) {
+        Ok(result) => result,
+        Err(err) => {
+            assert_ne!(err.code(), "CLOUD_DISABLED");
+            panic!(
+                "worker should succeed on fixture-replay, got {}",
+                err.code()
+            );
+        }
+    };
+
+    let direct_dir = tempdir().unwrap();
+    let direct_store = Store::open(direct_dir.path()).unwrap();
+    let direct_session = direct_store
+        .create_session(Some("Privilege consult".into()), "mixed")
+        .unwrap();
+    direct_store
+        .acknowledge_consent(&direct_session.id)
+        .unwrap();
+    direct_store.start_recording(&direct_session.id).unwrap();
+    direct_store
+        .finalize_with_wav(&direct_session.id, FIXTURE_WAV)
+        .unwrap();
+    let direct = direct_store
+        .transcribe(&direct_session.id, None)
+        .expect("Store::transcribe");
+
+    assert_eq!(worker.engine_id, "fixture-replay");
+    assert_eq!(direct.session.model_id.as_deref(), Some("fixture-replay"));
+    assert_eq!(
+        worker.raw_text,
+        direct.transcript.clone().unwrap_or_default()
+    );
+
+    let demo_dir = tempdir().unwrap();
+    let report = demo_pipeline(demo_dir.path()).expect("demo");
+    assert_eq!(report.engine_id, "fixture-replay");
+    assert_eq!(report.network_calls, 0);
+}
