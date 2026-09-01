@@ -54,7 +54,7 @@ Order was **H → I → J**. Parakeet came before the worker so both engines sha
 
 ## After H–J
 
-The implementation has the core pieces, but founder daily use is not yet a certified path. Continue serially after wave 38. One spec and two DAG waves per PR.
+The implementation has the core pieces, but founder daily use is not yet a certified path. **Soft-launch bar:** `docs/SOFT_LAUNCH.md`. Continue serially after wave 38. One spec and two DAG waves per PR.
 
 | PR | Branch | Spec | What ships | Merge gate |
 |----|--------|------|------------|------------|

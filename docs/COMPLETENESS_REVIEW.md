@@ -99,6 +99,8 @@ What the commands mean today:
 
 ## Ordered remaining scope
 
+Soft-launch bar: `docs/SOFT_LAUNCH.md`. Same order. L is the product P0; K unblocks the judge.
+
 1. **K, waves 39–40 — judge-reliability:** make demo/contract/CI deterministic on macOS with an isolated judge keystore while production desktop keeps Keychain.
 2. **L, waves 41–42 — model-onboarding:** make runnable state truthful; import Whisper file or Parakeet TDT directory; require explicit non-fixture live engine while keeping recorded audio retryable.
 3. **M, waves 43–44 — crash-recovery:** discover exact-session chunks and encrypt before cleanup; keep Discard explicit.
