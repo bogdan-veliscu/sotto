@@ -408,6 +408,31 @@ fn start_mic(dir: &Path) -> Result<LiveSession> {
     }
 }
 
+/// Report whether a system-audio tap backend is available on this platform.
+///
+/// Possible return values:
+/// - `"unsupported"` — off macOS, or macOS but no tap backend compiled in.
+/// - `"needs-permission"` — macOS tap backend present, Screen Recording not granted.
+/// - `"available"` — macOS tap backend present and permission granted.
+///
+/// This wave compiles no tap backend, so macOS also returns `"unsupported"`.
+pub fn system_tap_status() -> &'static str {
+    // No system-audio tap backend is compiled in this build.
+    // Never claim "available" unless a backend is wired and the permission
+    // check passes. `#[cfg(target_os = "macos")]` blocks below are kept as
+    // placeholders so future waves only need to fill them in.
+    #[cfg(not(target_os = "macos"))]
+    {
+        "unsupported"
+    }
+    #[cfg(target_os = "macos")]
+    {
+        // No tap backend compiled yet → honest "unsupported".
+        // When a real tap is wired, replace this with a permission probe.
+        "unsupported"
+    }
+}
+
 /// Begin a live capture session. System-audio taps are not implemented and
 /// return `CAPTURE_UNSUPPORTED` (recoverable). On macOS, `Mic`/`Mixed` open a
 /// CPAL input stream. Elsewhere (and when no device is present) they return

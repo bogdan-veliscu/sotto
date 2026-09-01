@@ -13,6 +13,7 @@ pub mod presence;
 pub mod search;
 mod store;
 pub mod stt;
+pub use capture::system_tap_status;
 pub use engines::{catalog, Engine, InstallState};
 pub use error::SottoError;
 pub use store::Store;
