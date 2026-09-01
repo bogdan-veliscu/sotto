@@ -206,6 +206,15 @@
       "ears": "WHEN apply_retention runs with retention_days > 0, THE SYSTEM SHALL delete sessions older than that window."
     },
     {"id": "SPEC-HARDEN", "type": "spec", "kiro_name": "harden", "wave": [17, 18]},
+    {
+      "id": "INV-FILTER-TITLE",
+      "type": "invariant",
+      "severity": "HIGH",
+      "control_id": "CONTROL_FILTER_TITLE",
+      "statement": "Title substring filter works without an FTS query.",
+      "ears": "WHEN search_filtered is given only title, THE SYSTEM SHALL return matching sessions."
+    },
+    {"id": "SPEC-DESK", "type": "spec", "kiro_name": "desk-closeout", "wave": [19, 20]},
     {"id": "CT-no-cloud-default", "type": "contract_test", "path": "tests/contract/test_catalog.py"},
     {"id": "CT-no-silent-cloud", "type": "contract_test", "path": "src-tauri/src/engines.rs"},
     {"id": "CT-consent-before-record", "type": "contract_test", "path": "src-tauri/src/store.rs"},
@@ -229,7 +238,8 @@
     {"id": "CT-filter-date", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
     {"id": "CT-tag-roundtrip", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
     {"id": "CT-keychain", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
-    {"id": "CT-retention", "type": "contract_test", "path": "src-tauri/tests/contract.rs"}
+    {"id": "CT-retention", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {"id": "CT-filter-title", "type": "contract_test", "path": "src-tauri/tests/contract.rs"}
   ],
   "edges": [
     {"from": "AudioAsset", "to": "Session", "rel": "REFERENCES"},
@@ -282,6 +292,8 @@
     {"from": "INV-KEYCHAIN", "to": "CT-keychain", "rel": "ENFORCED_BY"},
     {"from": "INV-RETENTION", "to": "CT-retention", "rel": "ENFORCED_BY"},
     {"from": "SPEC-HARDEN", "to": "CT-keychain", "rel": "COVERS"},
-    {"from": "SPEC-HARDEN", "to": "CT-retention", "rel": "COVERS"}
+    {"from": "SPEC-HARDEN", "to": "CT-retention", "rel": "COVERS"},
+    {"from": "INV-FILTER-TITLE", "to": "CT-filter-title", "rel": "ENFORCED_BY"},
+    {"from": "SPEC-DESK", "to": "CT-filter-title", "rel": "COVERS"}
   ]
 }

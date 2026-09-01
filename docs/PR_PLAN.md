@@ -26,6 +26,18 @@ Six PRs remain. One spec (or two DAG waves) per PR. Contract tests are the merge
 
 Capture before STT. Whisper before Parakeet so there is always one real local engine. Install UI after an engine can run. Notes after there is a real transcript. Filters after notes. Keychain last so we do not churn crypto twice.
 
+## After v1 (do not skip A; do not parallelize)
+
+| Wave | Branch | Spec | What ships | Merge gate |
+|------|--------|------|------------|------------|
+| **A** | `feat/desk-closeout` | `desk-closeout` | Promised v1 APIs actually usable in the desk. No live Core Audio. | `CT-filter-title`, `make ci` |
+| **B** | `feat/live-record` | `live-record` | Record/Pause/Stop drive `ChunkedRecorder` + mic. Fixture only for `make demo`. | live-record CTs |
+| **C** | `feat/presence` | `presence` | Login item, menu bar, notch HUD (LED + timer). | presence CTs |
+| **D** | `feat/hotkey` | `hotkey` | Configurable toggle + optional PTT. | hotkey CTs |
+| **E** | `feat/meeting-detect` | `meeting-detect` | Local process watch; ask before record; never silent-start. | meeting-detect CTs |
+
+Still no bot, no silent cloud, no calendar sync.
+
 ## Explicit non-goals in these six PRs
 
 Meeting bot, cloud STT default, telemetry on, calendar, teams, browser extension, Windows/Linux, App Store notarization.

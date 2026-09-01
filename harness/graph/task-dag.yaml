@@ -144,3 +144,19 @@ waves:
       - id: T18-retention
         summary: retention deletes old sessions; scrub plaintext WAV leftovers
         contract_tests: [CT-retention]
+  - id: 19
+    spec: desk-closeout
+    name: title-filter
+    depends_on: [18]
+    tasks:
+      - id: T19-title-filter
+        summary: title substring search without FTS q
+        contract_tests: [CT-filter-title]
+  - id: 20
+    spec: desk-closeout
+    name: desk-ui
+    depends_on: [19]
+    tasks:
+      - id: T20-desk-ui
+        summary: invoke guard, engines, filters, delete-all, wrap header
+        contract_tests: [CT-filter-title]

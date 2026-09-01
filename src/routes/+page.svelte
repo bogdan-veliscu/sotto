@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { api, formatClock, formatStamp, isTauri } from '$lib/api';
   import type { Engine, PrivacySettings, SearchHit, Session, SessionDetail } from '$lib/types';
-  import { save } from '@tauri-apps/plugin-dialog';
+  import { open, save } from '@tauri-apps/plugin-dialog';
 
   let tauri = $state(false);
   let onboarded = $state(false);
@@ -17,14 +17,18 @@
   let tagDraft = $state('');
   let hits = $state<SearchHit[]>([]);
   let err = $state('');
+  let busy = $state('');
   let liveId = $state<string | null>(null);
   let liveStatus = $state('idle');
   let elapsed = $state(0);
   let timer: number | undefined;
   let settingsOpen = $state(false);
   let consentOpen = $state(false);
+  let deleteAllOpen = $state(false);
   let pendingId = $state<string | null>(null);
   let titleDraft = $state('');
+  let defaultModel = $state('fixture-replay');
+  let shaDraft = $state<Record<string, string>>({});
   let privacy = $state<PrivacySettings>({
     telemetry: 'off',
     cloud_mode: 'off',
@@ -33,6 +37,10 @@
 
   const consentText =
     'I am recording this conversation with Sotto. The audio stays on this computer. I have permission to record.';
+
+  function fail(e: unknown) {
+    err = e instanceof Error ? e.message : String(e);
+  }
 
   async function refresh() {
     sessions = await api.sessions();
@@ -51,6 +59,7 @@
     if (!tauri) return;
     const flag = await api.settingsGet('onboarding_complete');
     onboarded = flag === 'true';
+    defaultModel = (await api.settingsGet('default_model')) ?? 'fixture-replay';
     await refresh();
     if (sessions[0]) await openSession(sessions[0].id);
   }
@@ -100,13 +109,20 @@
   async function stopAndTranscribe() {
     if (!liveId) return;
     err = '';
+    busy = 'Encrypting and transcribing on this Mac…';
     window.clearInterval(timer);
-    await api.stopFixture(liveId);
-    const detail = await api.transcribe(liveId);
-    selected = detail;
-    liveId = null;
-    liveStatus = 'idle';
-    elapsed = 0;
+    try {
+      await api.stopFixture(liveId);
+      const detail = await api.transcribe(liveId);
+      selected = detail;
+      titleDraft = detail.session.title;
+      tagDraft = detail.tags.join(', ');
+    } finally {
+      liveId = null;
+      liveStatus = 'idle';
+      elapsed = 0;
+      busy = '';
+    }
     await refresh();
   }
 
@@ -134,7 +150,10 @@
 
   async function saveTags() {
     if (!selected) return;
-    const tags = tagDraft.split(',').map((t) => t.trim()).filter(Boolean);
+    const tags = tagDraft
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean);
     const saved = await api.setTags(selected.session.id, tags);
     selected = { ...selected, tags: saved };
     tagDraft = saved.join(', ');
@@ -167,11 +186,50 @@
     settingsOpen = true;
     if (!tauri) return;
     privacy = await api.privacy();
+    engines = await api.engines();
+    defaultModel = (await api.settingsGet('default_model')) ?? 'fixture-replay';
   }
 
   async function setPrivacy(key: 'telemetry' | 'cloud_mode', value: string) {
     await api.settingsSet(key, value);
     privacy = await api.privacy();
+  }
+
+  async function setDefaultModel(id: string) {
+    defaultModel = id;
+    await api.settingsSet('default_model', id);
+  }
+
+  async function installEngine(engineId: string) {
+    const sha = (shaDraft[engineId] ?? '').trim().toLowerCase();
+    if (!sha || sha.length !== 64) {
+      err = 'Paste the 64-character SHA-256 of the local weights file.';
+      return;
+    }
+    const picked = await open({ multiple: false, title: 'Choose local model weights' });
+    if (!picked || Array.isArray(picked)) return;
+    busy = 'Installing local weights…';
+    try {
+      await api.installModelFile(engineId, picked, sha);
+      await refresh();
+      engines = await api.engines();
+    } finally {
+      busy = '';
+    }
+  }
+
+  async function removeEngine(engineId: string) {
+    await api.deleteModel(engineId);
+    engines = await api.engines();
+  }
+
+  async function confirmDeleteAll() {
+    await api.deleteAll();
+    selected = null;
+    hits = [];
+    deleteAllOpen = false;
+    settingsOpen = false;
+    await refresh();
   }
 
   async function removeSelected() {
@@ -182,7 +240,7 @@
   }
 
   onMount(() => {
-    boot().catch((e) => (err = String(e)));
+    boot().catch(fail);
     return () => window.clearInterval(timer);
   });
 </script>
@@ -198,7 +256,7 @@
       class="search"
       onsubmit={(e) => {
         e.preventDefault();
-        runSearch().catch((e) => (err = String(e)));
+        runSearch().catch(fail);
       }}
     >
       <input bind:value={query} placeholder="Search transcripts on this Mac" />
@@ -207,22 +265,25 @@
       <span class="led" class:on={liveStatus === 'recording'}></span>
       <span class="mono clock">{formatClock(elapsed)}</span>
       {#if liveStatus === 'recording'}
-        <button class="ghost" onclick={() => pause().catch((e) => (err = String(e)))}>Pause</button>
-        <button class="danger" onclick={() => stopAndTranscribe().catch((e) => (err = String(e)))}>Stop</button>
+        <button class="ghost" onclick={() => pause().catch(fail)}>Pause</button>
+        <button class="danger" onclick={() => stopAndTranscribe().catch(fail)}>Stop</button>
       {:else if liveStatus === 'paused'}
-        <button class="ghost" onclick={() => resume().catch((e) => (err = String(e)))}>Resume</button>
-        <button class="danger" onclick={() => stopAndTranscribe().catch((e) => (err = String(e)))}>Stop</button>
+        <button class="ghost" onclick={() => resume().catch(fail)}>Resume</button>
+        <button class="danger" onclick={() => stopAndTranscribe().catch(fail)}>Stop</button>
       {:else}
-        <button class="primary" onclick={() => startRecord().catch((e) => (err = String(e)))} disabled={!tauri}>
+        <button class="primary" onclick={() => startRecord().catch(fail)} disabled={!tauri || !!busy}>
           Record
         </button>
       {/if}
-      <button class="ghost" onclick={() => openSettings().catch((e) => (err = String(e)))}>Models</button>
+      <button class="ghost" onclick={() => openSettings().catch(fail)}>Models</button>
     </div>
   </header>
 
   {#if !tauri}
     <div class="banner">This is the desk shell. Run <span class="mono">make dev</span> to talk to the local store. <span class="mono">make demo</span> proves the privacy invariants without the UI.</div>
+  {/if}
+  {#if busy}
+    <div class="banner">{busy}</div>
   {/if}
   {#if err}
     <div class="banner bad">{err}</div>
@@ -231,16 +292,23 @@
   <div class="body">
     <aside>
       <div class="aside-h">Sessions</div>
-      <div class="filters">
+      <form
+        class="filters"
+        onsubmit={(e) => {
+          e.preventDefault();
+          runSearch().catch(fail);
+        }}
+      >
         <input bind:value={titleFilter} placeholder="Title contains" />
         <input type="date" bind:value={fromDay} aria-label="From date" />
         <input type="date" bind:value={toDay} aria-label="To date" />
         <input bind:value={tagFilter} placeholder="Tag" />
-      </div>
+        <button type="submit" class="ghost">Filter</button>
+      </form>
       {#if hits.length}
         <div class="hits">
           {#each hits as hit}
-            <button class="row" onclick={() => openSession(hit.session_id).catch((e) => (err = String(e)))}>
+            <button class="row" onclick={() => openSession(hit.session_id).catch(fail)}>
               <strong>{hit.title}</strong>
               <span>{hit.snippet}</span>
             </button>
@@ -251,7 +319,7 @@
         <button
           class="row"
           class:active={selected?.session.id === s.id}
-          onclick={() => openSession(s.id).catch((e) => (err = String(e)))}
+          onclick={() => openSession(s.id).catch(fail)}
         >
           <strong>{s.title}</strong>
           <em>{s.status} · {s.id}</em>
@@ -264,10 +332,10 @@
     <main>
       {#if selected}
         <div class="title-row">
-          <input class="title" bind:value={titleDraft} onchange={() => saveTitle().catch((e) => (err = String(e)))} />
-          <button class="ghost" onclick={() => exportMd().catch((e) => (err = String(e)))}>Copy markdown</button>
-          <button class="ghost" onclick={() => saveMd().catch((e) => (err = String(e)))}>Save markdown</button>
-          <button class="ghost" onclick={() => removeSelected().catch((e) => (err = String(e)))}>Delete</button>
+          <input class="title" bind:value={titleDraft} onchange={() => saveTitle().catch(fail)} />
+          <button class="ghost" onclick={() => exportMd().catch(fail)}>Copy markdown</button>
+          <button class="ghost" onclick={() => saveMd().catch(fail)}>Save markdown</button>
+          <button class="ghost" onclick={() => removeSelected().catch(fail)}>Delete</button>
         </div>
         <div class="meta mono">
           {selected.session.status}
@@ -277,7 +345,7 @@
         </div>
         <div class="title-row tags">
           <input class="tag-input" bind:value={tagDraft} placeholder="tags, comma separated" />
-          <button class="ghost" onclick={() => saveTags().catch((e) => (err = String(e)))}>Save tags</button>
+          <button class="ghost" onclick={() => saveTags().catch(fail)}>Save tags</button>
         </div>
         {#if selected.summary}
           <section>
@@ -328,7 +396,7 @@
         <li>Cloud engines stay off unless you turn them on.</li>
       </ul>
       <p class="fine">You are responsible for telling others when the law requires consent to record.</p>
-      <button class="primary" onclick={() => finishOnboarding().catch((e) => (err = String(e)))}>Enter the desk</button>
+      <button class="primary" onclick={() => finishOnboarding().catch(fail)}>Enter the desk</button>
     </div>
   </div>
 {/if}
@@ -340,7 +408,20 @@
       <blockquote>{consentText}</blockquote>
       <div class="actions">
         <button class="ghost" onclick={() => (consentOpen = false)}>Cancel</button>
-        <button class="primary" onclick={() => acceptConsent().catch((e) => (err = String(e)))}>I can record</button>
+        <button class="primary" onclick={() => acceptConsent().catch(fail)}>I can record</button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+{#if deleteAllOpen}
+  <div class="modal">
+    <div class="card">
+      <p class="wordmark">Delete everything on this Mac?</p>
+      <p>Sessions, transcripts, and encrypted audio. This cannot be undone.</p>
+      <div class="actions">
+        <button class="ghost" onclick={() => (deleteAllOpen = false)}>Cancel</button>
+        <button class="danger" onclick={() => confirmDeleteAll().catch(fail)}>Delete all</button>
       </div>
     </div>
   </div>
@@ -353,15 +434,45 @@
     onclick={() => (settingsOpen = false)}
     onkeydown={(e) => e.key === 'Escape' && (settingsOpen = false)}
   >
-    <div class="card wide" role="dialog" aria-modal="true" aria-label="Engines" tabindex="-1">
+    <div
+      class="card wide"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Engines"
+      tabindex="-1"
+      onclick={(e) => e.stopPropagation()}
+      onkeydown={(e) => e.stopPropagation()}
+    >
       <p class="wordmark">Engines</p>
-      {#each engines as engine}
-        <div class="engine">
-          <strong>{engine.name}</strong>
-          <span class="mono">{engine.mode} · {engine.install_state}</span>
-          <p>{engine.notes}</p>
-        </div>
-      {/each}
+      {#if engines.length}
+        {#each engines as engine}
+          <div class="engine">
+            <strong>{engine.name}</strong>
+            <span class="mono">{engine.mode} · {engine.install_state}</span>
+            <p>{engine.notes}</p>
+            <div class="engine-actions">
+              <button class="ghost" onclick={() => setDefaultModel(engine.id).catch(fail)}>
+                {defaultModel === engine.id ? 'Default' : 'Use as default'}
+              </button>
+              {#if engine.id !== 'fixture-replay' && engine.install_state !== 'ready'}
+                <input
+                  class="tag-input"
+                  placeholder="SHA-256 of local file"
+                  value={shaDraft[engine.id] ?? ''}
+                  oninput={(e) =>
+                    (shaDraft = { ...shaDraft, [engine.id]: (e.currentTarget as HTMLInputElement).value })}
+                />
+                <button class="ghost" onclick={() => installEngine(engine.id).catch(fail)}>Install file</button>
+              {/if}
+              {#if engine.id !== 'fixture-replay' && engine.install_state === 'ready'}
+                <button class="ghost" onclick={() => removeEngine(engine.id).catch(fail)}>Remove weights</button>
+              {/if}
+            </div>
+          </div>
+        {/each}
+      {:else}
+        <p class="fine">Engine catalog loads when the desk talks to the local store.</p>
+      {/if}
       <p class="fine">Install is something you start. Demo never fetches weights. A failed checksum is discarded.</p>
       <p class="wordmark privacy-h">Privacy</p>
       <div class="engine">
@@ -371,7 +482,7 @@
         <button
           class="ghost"
           onclick={() =>
-            setPrivacy('telemetry', privacy.telemetry === 'on' ? 'off' : 'on').catch((e) => (err = String(e)))}
+            setPrivacy('telemetry', privacy.telemetry === 'on' ? 'off' : 'on').catch(fail)}
         >
           {privacy.telemetry === 'on' ? 'Turn off' : 'Turn on'}
         </button>
@@ -383,7 +494,7 @@
         <button
           class="ghost"
           onclick={() =>
-            setPrivacy('cloud_mode', privacy.cloud_mode === 'on' ? 'off' : 'on').catch((e) => (err = String(e)))}
+            setPrivacy('cloud_mode', privacy.cloud_mode === 'on' ? 'off' : 'on').catch(fail)}
         >
           {privacy.cloud_mode === 'on' ? 'Turn off' : 'Turn on'}
         </button>
@@ -403,8 +514,13 @@
               .then(() => api.applyRetention())
               .then(() => api.privacy())
               .then((p) => (privacy = p))
-              .catch((e) => (err = String(e)))}
+              .catch(fail)}
         />
+      </div>
+      <div class="engine">
+        <strong>Delete all</strong>
+        <p>Removes sessions, search index, and encrypted audio on this Mac.</p>
+        <button class="ghost" onclick={() => (deleteAllOpen = true)}>Delete all data</button>
       </div>
       <button class="ghost" onclick={() => (settingsOpen = false)}>Close</button>
     </div>
@@ -415,14 +531,15 @@
   .desk { height: 100vh; display: flex; flex-direction: column; background:
     radial-gradient(1200px 500px at 80% -10%, #2a2018 0%, transparent 50%),
     var(--shell); }
-  header { display: grid; grid-template-columns: auto 1fr auto; gap: 16px; align-items: center; padding: 14px 20px; border-bottom: 1px solid var(--line); }
-  .brand { display: flex; gap: 8px; align-items: baseline; }
+  header { display: flex; flex-wrap: wrap; gap: 12px 16px; align-items: center; padding: 14px 20px; border-bottom: 1px solid var(--line); }
+  .brand { display: flex; gap: 8px; align-items: baseline; flex: 0 0 auto; }
   .wordmark { font-size: 28px; }
   header .wordmark { font-size: 26px; }
   .chip { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; background: var(--chip); padding: 4px 8px; color: var(--ok); }
   .chip.ghost { color: var(--mute); background: transparent; border: 1px solid var(--line); }
+  .search { flex: 1 1 240px; min-width: 0; }
   .search input { width: 100%; background: var(--panel); border: 1px solid var(--line); color: var(--paper); padding: 10px 12px; }
-  .rec { display: flex; gap: 8px; align-items: center; }
+  .rec { display: flex; gap: 8px; align-items: center; flex: 0 1 auto; flex-wrap: wrap; }
   .led { width: 10px; height: 10px; border-radius: 50%; background: #3a2a26; box-shadow: inset 0 0 0 1px #000; }
   .led.on { background: var(--led); box-shadow: 0 0 12px var(--led); animation: pulse 1.2s ease-in-out infinite; }
   @keyframes pulse { 50% { opacity: 0.55; } }
@@ -434,7 +551,7 @@
   button:disabled { opacity: 0.4; cursor: not-allowed; }
   .banner { padding: 8px 20px; background: #241c14; color: var(--mute); font-size: 13px; }
   .banner.bad { background: #3a1814; color: #f3c0b6; }
-  .body { flex: 1; display: grid; grid-template-columns: 280px 1fr; min-height: 0; }
+  .body { flex: 1; display: grid; grid-template-columns: minmax(220px, 280px) 1fr; min-height: 0; }
   aside { border-right: 1px solid var(--line); overflow: auto; padding: 12px; }
   .aside-h { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--mute); margin-bottom: 8px; }
   .filters { display: grid; gap: 6px; margin-bottom: 12px; }
@@ -445,8 +562,8 @@
   .row em { color: var(--mute); font-style: normal; font-size: 12px; font-family: 'IBM Plex Mono', monospace; }
   .row.active, .row:hover { background: var(--panel); border-color: var(--line); }
   main { overflow: auto; padding: 28px 36px 64px; }
-  .title-row { display: flex; gap: 8px; align-items: center; }
-  .title { flex: 1; background: transparent; border: 0; border-bottom: 1px solid var(--line); color: var(--paper); font-family: 'Fraunces', serif; font-size: 32px; padding: 4px 0; }
+  .title-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .title { flex: 1; min-width: 12rem; background: transparent; border: 0; border-bottom: 1px solid var(--line); color: var(--paper); font-family: 'Fraunces', serif; font-size: 32px; padding: 4px 0; }
   .meta { color: var(--mute); margin: 8px 0 24px; font-size: 12px; }
   h2 { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--mute); font-weight: 600; }
   .seg { line-height: 1.55; margin: 0 0 10px; max-width: 62ch; }
@@ -455,7 +572,7 @@
   .blank { max-width: 36rem; padding-top: 12vh; }
   .blank .wordmark { font-size: 42px; display: block; margin-bottom: 12px; }
   .modal { position: fixed; inset: 0; background: rgba(10,8,6,0.72); display: grid; place-items: center; padding: 24px; }
-  .card { background: var(--paper); color: var(--ink); padding: 28px; width: min(520px, 100%); }
+  .card { background: var(--paper); color: var(--ink); padding: 28px; width: min(520px, 100%); max-height: 90vh; overflow: auto; }
   .card.wide { width: min(640px, 100%); }
   .card .wordmark { font-size: 32px; display: block; margin-bottom: 12px; }
   .privacy-h { font-size: 22px !important; margin-top: 16px; }
@@ -464,5 +581,11 @@
   .actions { display: flex; gap: 8px; justify-content: flex-end; }
   .engine { border-top: 1px solid #d9ccb4; padding: 12px 0; }
   .engine span { display: block; color: #6d6458; font-size: 12px; }
+  .engine-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
   pre { white-space: pre-wrap; font-family: inherit; }
+  @media (max-width: 900px) {
+    .body { grid-template-columns: 1fr; }
+    aside { border-right: 0; border-bottom: 1px solid var(--line); max-height: 40vh; }
+    header .wordmark { font-size: 22px; }
+  }
 </style>

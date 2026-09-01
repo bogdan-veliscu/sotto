@@ -375,3 +375,26 @@ fn ct_retention() {
     assert!(store.get_session(&old.id).is_err());
     assert!(store.get_session(&keep.id).is_ok());
 }
+
+#[test]
+fn ct_filter_title() {
+    let dir = tempdir().unwrap();
+    let store = Store::open(dir.path()).unwrap();
+    let hit = store
+        .create_session(Some("Privilege consult".into()), "mixed")
+        .unwrap();
+    let _miss = store
+        .create_session(Some("Standup notes".into()), "mixed")
+        .unwrap();
+    let hits = store
+        .search_filtered(
+            &SearchFilter {
+                title: Some("privilege".into()),
+                ..Default::default()
+            },
+            20,
+        )
+        .expect("title filter");
+    assert_eq!(hits.len(), 1, "expected only the title match");
+    assert_eq!(hits[0].session_id, hit.id);
+}

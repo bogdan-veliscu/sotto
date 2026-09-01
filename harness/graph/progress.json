@@ -1,1 +1,1 @@
-{"current_wave": 18, "completed_nodes": ["SPEC-STORE", "SPEC-CAPTURE", "SPEC-SEARCH", "SPEC-LIVE", "SPEC-STT", "SPEC-INSTALL", "SPEC-NOTES", "SPEC-FILTERS", "SPEC-HARDEN"], "notes": "PR 6 harden GREEN. KeyStore + retention. v1 complete."}
+{"current_wave": 20, "completed_nodes": ["SPEC-STORE", "SPEC-CAPTURE", "SPEC-SEARCH", "SPEC-LIVE", "SPEC-STT", "SPEC-INSTALL", "SPEC-NOTES", "SPEC-FILTERS", "SPEC-HARDEN", "SPEC-DESK"], "notes": "Wave A desk-closeout GREEN."}
