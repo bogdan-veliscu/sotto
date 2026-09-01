@@ -71,7 +71,7 @@
 
   async function startRecord() {
     err = '';
-    const session = await api.start(undefined, 'mixed');
+    const session = await api.start(undefined, 'mic');
     pendingId = session.id;
     consentOpen = true;
     await refresh();
@@ -108,15 +108,22 @@
 
   async function stopAndTranscribe() {
     if (!liveId) return;
+    const id = liveId;
     err = '';
-    busy = 'Encrypting and transcribing on this Mac…';
+    busy = 'Encrypting on this Mac…';
     window.clearInterval(timer);
     try {
-      await api.stopFixture(liveId);
-      const detail = await api.transcribe(liveId);
-      selected = detail;
-      titleDraft = detail.session.title;
-      tagDraft = detail.tags.join(', ');
+      await api.stop(id);
+      busy = 'Transcribing on this Mac…';
+      try {
+        const detail = await api.transcribe(id);
+        selected = detail;
+        titleDraft = detail.session.title;
+        tagDraft = detail.tags.join(', ');
+      } catch (e) {
+        fail(e);
+        await openSession(id);
+      }
     } finally {
       liveId = null;
       liveStatus = 'idle';
@@ -372,7 +379,7 @@
               <p class="seg"><span class="mono t">{formatStamp(seg.start_ms)}</span> {seg.text}</p>
             {/each}
           {:else}
-            <p class="empty">No transcript yet. Stop a recording to run fixture replay.</p>
+            <p class="empty">No transcript yet. Install a local model to transcribe a live recording. make demo still uses fixture-replay.</p>
           {/if}
         </section>
       {:else}

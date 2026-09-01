@@ -282,7 +282,32 @@ impl Store {
         self.start_recording(session_id)
     }
 
+    pub fn live_dir(&self, session_id: &str) -> PathBuf {
+        self.data_dir.join("live").join(session_id)
+    }
+
     pub fn finalize_with_wav(&self, session_id: &str, wav: &[u8]) -> Result<Session> {
+        self.finalize_capture(session_id, wav, 1)
+    }
+
+    pub fn finalize_live(
+        &self,
+        session_id: &str,
+        live: crate::capture::LiveSession,
+    ) -> Result<Session> {
+        let captured = live.finish()?;
+        let secs = i64::try_from((captured.duration_ms + 500) / 1000).unwrap_or(0);
+        let session = self.finalize_capture(session_id, &captured.wav, secs)?;
+        let _ = fs::remove_dir_all(self.live_dir(session_id));
+        Ok(session)
+    }
+
+    fn finalize_capture(
+        &self,
+        session_id: &str,
+        wav: &[u8],
+        duration_seconds: i64,
+    ) -> Result<Session> {
         let session = self.get_session(session_id)?;
         if session.consent_state != "acknowledged" {
             return Err(SottoError::app(
@@ -329,8 +354,8 @@ impl Store {
             ],
         )?;
         self.conn.execute(
-            "UPDATE sessions SET status = 'recorded', ended_at = ?2, duration_seconds = 1 WHERE id = ?1",
-            params![session_id, now],
+            "UPDATE sessions SET status = 'recorded', ended_at = ?2, duration_seconds = ?3 WHERE id = ?1",
+            params![session_id, now, duration_seconds],
         )?;
         self.get_session(session_id)
     }
@@ -357,7 +382,7 @@ impl Store {
 
     /// Decrypt the session's stored audio to plaintext WAV bytes for
     /// on-device transcription. Returns empty bytes when no audio asset
-    /// exists (fixture-replay ignores the audio).
+    /// exists. fixture-replay requires the golden WAV.
     fn read_session_wav(&self, session_id: &str) -> Result<Vec<u8>> {
         let rel: Option<String> = self
             .conn
@@ -643,9 +668,9 @@ impl Store {
     }
 
     pub fn list_tags(&self, session_id: &str) -> Result<Vec<String>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT tag FROM session_tags WHERE session_id = ?1 ORDER BY tag",
-        )?;
+        let mut stmt = self
+            .conn
+            .prepare("SELECT tag FROM session_tags WHERE session_id = ?1 ORDER BY tag")?;
         let rows = stmt.query_map(params![session_id], |row| row.get(0))?;
         rows.collect::<rusqlite::Result<Vec<_>>>()
             .map_err(Into::into)
@@ -790,9 +815,9 @@ impl Store {
             .unwrap_or(0);
         let cutoff = now.saturating_sub(days.saturating_mul(86_400));
         let ids: Vec<String> = {
-            let mut stmt = self.conn.prepare(
-                "SELECT id FROM sessions WHERE CAST(created_at AS INTEGER) < ?1",
-            )?;
+            let mut stmt = self
+                .conn
+                .prepare("SELECT id FROM sessions WHERE CAST(created_at AS INTEGER) < ?1")?;
             let rows = stmt.query_map(params![cutoff as i64], |row| row.get(0))?;
             rows.collect::<rusqlite::Result<Vec<_>>>()?
         };

@@ -31,7 +31,7 @@ Capture before STT. Whisper before Parakeet so there is always one real local en
 | Wave | Branch | Spec | What ships | Merge gate |
 |------|--------|------|------------|------------|
 | **A** | `feat/desk-closeout` | `desk-closeout` | Promised v1 APIs actually usable in the desk. No live Core Audio. | `CT-filter-title`, `make ci` |
-| **B** | `feat/live-record` | `live-record` | Record/Pause/Stop drive `ChunkedRecorder` + mic. Fixture only for `make demo`. | live-record CTs |
+| **B** | `feat/live-record` | `live-record` | Record/Pause/Stop drive `ChunkedRecorder` + mic. Fixture only for `make demo`. | `CT-live-stop-not-fixture`, `CT-fixture-audio-mismatch` |
 | **C** | `feat/presence` | `presence` | Login item, menu bar, notch HUD (LED + timer). | presence CTs |
 | **D** | `feat/hotkey` | `hotkey` | Configurable toggle + optional PTT. | hotkey CTs |
 | **E** | `feat/meeting-detect` | `meeting-detect` | Local process watch; ask before record; never silent-start. | meeting-detect CTs |

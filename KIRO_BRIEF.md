@@ -8,7 +8,7 @@ Sotto is a **local-first meeting recorder**. Headline: a meeting recorded on thi
 
 PR 0 (shipped): fixture capture → AES-GCM → fixture-replay → FTS5 → delete-all.
 
-**Current DAG wave: 19–20 (`desk-closeout`).** Usable desk for existing APIs. Live Core Audio is the next spec. See `docs/PR_PLAN.md`.
+**Current DAG wave: 21–22 (`live-record`).** Record/Pause/Stop drive the mic + `ChunkedRecorder`. Fixture stays on `make demo`. System taps are still `CAPTURE_UNSUPPORTED`. See `docs/PR_PLAN.md`.
 
 ## Commands
 

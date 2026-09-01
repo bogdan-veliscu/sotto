@@ -160,3 +160,19 @@ waves:
       - id: T20-desk-ui
         summary: invoke guard, engines, filters, delete-all, wrap header
         contract_tests: [CT-filter-title]
+  - id: 21
+    spec: live-record
+    name: live-stop
+    depends_on: [20]
+    tasks:
+      - id: T21-live-stop
+        summary: finalize_live encrypts chunk WAV, not CONSULT-001
+        contract_tests: [CT-live-stop-not-fixture]
+  - id: 22
+    spec: live-record
+    name: desk-live
+    depends_on: [21]
+    tasks:
+      - id: T22-desk-live
+        summary: recorder_stop + mic begin; fixture-replay rejects live audio
+        contract_tests: [CT-fixture-audio-mismatch]

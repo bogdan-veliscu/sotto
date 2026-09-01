@@ -18,11 +18,10 @@ async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> 
   try {
     return await invoke<T>(cmd, args);
   } catch (e) {
-    const msg =
-      typeof e === 'object' && e !== null && 'message' in e
-        ? String((e as { message: unknown }).message)
-        : String(e);
-    throw new DeskError(msg || 'The local store rejected that command.');
+    const obj = typeof e === 'object' && e !== null ? (e as Record<string, unknown>) : null;
+    const msg = obj && 'message' in obj ? String(obj.message) : String(e);
+    const hint = obj && 'action_hint' in obj ? String(obj.action_hint) : '';
+    throw new DeskError(hint ? `${msg} ${hint}` : msg || 'The local store rejected that command.');
   }
 }
 
@@ -32,13 +31,13 @@ export const api = {
   engines: () => call<Engine[]>('engines_list'),
   sessions: () => call<Session[]>('sessions_list', { limit: 50 }),
   session: (sessionId: string) => call<SessionDetail>('sessions_get', { sessionId }),
-  start: (title?: string, source = 'mixed') =>
+  start: (title?: string, source = 'mic') =>
     call<Session>('recorder_start', { args: { title, source } }),
   consent: (sessionId: string) => call<Session>('recorder_consent', { sessionId }),
   begin: (sessionId: string) => call<Session>('recorder_begin', { sessionId }),
   pause: (sessionId: string) => call<Session>('recorder_pause', { sessionId }),
   resume: (sessionId: string) => call<Session>('recorder_resume', { sessionId }),
-  stopFixture: (sessionId: string) => call<Session>('recorder_stop_fixture', { sessionId }),
+  stop: (sessionId: string) => call<Session>('recorder_stop', { sessionId }),
   transcribe: (sessionId: string, modelId?: string) =>
     call<SessionDetail>('transcribe_run', { sessionId, modelId }),
   search: (

@@ -37,10 +37,7 @@ fn is_valid_ggml(bytes: &[u8]) -> bool {
     if bytes.len() < 4 {
         return false;
     }
-    matches!(
-        &bytes[..4],
-        b"ggml" | b"ggjt" | b"ggla" | b"ggmf" | b"GGUF"
-    )
+    matches!(&bytes[..4], b"ggml" | b"ggjt" | b"ggla" | b"ggmf" | b"GGUF")
 }
 
 fn file_is_valid_ggml(path: &Path) -> Result<bool> {
@@ -78,12 +75,17 @@ fn model_invalid() -> SottoError {
 ///   is compiled in.
 /// - any cloud/api engine → `CLOUD_DISABLED` (cloud policy lives in
 ///   `resolve_engine`; this is a defensive guard).
-pub fn transcribe_local(
-    engine_id: &str,
-    wav: &[u8],
-    cache_dir: &Path,
-) -> Result<TranscriptResult> {
+pub fn transcribe_local(engine_id: &str, wav: &[u8], cache_dir: &Path) -> Result<TranscriptResult> {
     if engine_id == FIXTURE_ENGINE_ID {
+        const GOLDEN: &[u8] = include_bytes!("../../fixtures/sessions/CONSULT-001.wav");
+        if wav != GOLDEN {
+            return Err(SottoError::app(
+                "FIXTURE_AUDIO_MISMATCH",
+                "fixture-replay only transcribes the golden CONSULT-001 capture.",
+                true,
+                "Install a local Whisper or Parakeet model to transcribe this recording. Audio stays encrypted on this Mac.",
+            ));
+        }
         return Ok(engines::fixture_transcript());
     }
 
@@ -263,8 +265,8 @@ fn pcm_f32_from_wav(wav: &[u8]) -> Result<Vec<f32>> {
     let mut data: &[u8] = &[];
     while pos + 8 <= wav.len() {
         let id = &wav[pos..pos + 4];
-        let size = u32::from_le_bytes([wav[pos + 4], wav[pos + 5], wav[pos + 6], wav[pos + 7]])
-            as usize;
+        let size =
+            u32::from_le_bytes([wav[pos + 4], wav[pos + 5], wav[pos + 6], wav[pos + 7]]) as usize;
         let body_start = pos + 8;
         let body_end = (body_start + size).min(wav.len());
         if id == b"data" {
@@ -288,7 +290,8 @@ mod tests {
     #[test]
     fn fixture_engine_returns_golden() {
         let dir = tempdir().unwrap();
-        let result = transcribe_local(FIXTURE_ENGINE_ID, b"", dir.path()).unwrap();
+        const GOLDEN: &[u8] = include_bytes!("../../fixtures/sessions/CONSULT-001.wav");
+        let result = transcribe_local(FIXTURE_ENGINE_ID, GOLDEN, dir.path()).unwrap();
         assert_eq!(result.engine_id, FIXTURE_ENGINE_ID);
     }
 

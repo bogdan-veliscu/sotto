@@ -239,7 +239,26 @@
     {"id": "CT-tag-roundtrip", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
     {"id": "CT-keychain", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
     {"id": "CT-retention", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
-    {"id": "CT-filter-title", "type": "contract_test", "path": "src-tauri/tests/contract.rs"}
+    {"id": "CT-filter-title", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {
+      "id": "INV-LIVE-STOP-NOT-FIXTURE",
+      "type": "invariant",
+      "severity": "HIGH",
+      "control_id": "CONTROL_LIVE_STOP",
+      "statement": "Live finalize encrypts chunk WAV, never CONSULT-001.",
+      "ears": "WHEN finalize_live runs on a ChunkedRecorder, THE SYSTEM SHALL encrypt that WAV and SHALL NOT substitute the golden fixture."
+    },
+    {
+      "id": "INV-FIXTURE-AUDIO-MISMATCH",
+      "type": "invariant",
+      "severity": "HIGH",
+      "control_id": "CONTROL_FIXTURE_AUDIO",
+      "statement": "fixture-replay refuses audio that is not CONSULT-001.",
+      "ears": "WHEN transcribe_local uses fixture-replay on non-golden WAV, THE SYSTEM SHALL return FIXTURE_AUDIO_MISMATCH."
+    },
+    {"id": "SPEC-LIVE-RECORD", "type": "spec", "kiro_name": "live-record", "wave": [21, 22]},
+    {"id": "CT-live-stop-not-fixture", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {"id": "CT-fixture-audio-mismatch", "type": "contract_test", "path": "src-tauri/tests/contract.rs"}
   ],
   "edges": [
     {"from": "AudioAsset", "to": "Session", "rel": "REFERENCES"},
@@ -294,6 +313,10 @@
     {"from": "SPEC-HARDEN", "to": "CT-keychain", "rel": "COVERS"},
     {"from": "SPEC-HARDEN", "to": "CT-retention", "rel": "COVERS"},
     {"from": "INV-FILTER-TITLE", "to": "CT-filter-title", "rel": "ENFORCED_BY"},
-    {"from": "SPEC-DESK", "to": "CT-filter-title", "rel": "COVERS"}
+    {"from": "SPEC-DESK", "to": "CT-filter-title", "rel": "COVERS"},
+    {"from": "INV-LIVE-STOP-NOT-FIXTURE", "to": "CT-live-stop-not-fixture", "rel": "ENFORCED_BY"},
+    {"from": "INV-FIXTURE-AUDIO-MISMATCH", "to": "CT-fixture-audio-mismatch", "rel": "ENFORCED_BY"},
+    {"from": "SPEC-LIVE-RECORD", "to": "CT-live-stop-not-fixture", "rel": "COVERS"},
+    {"from": "SPEC-LIVE-RECORD", "to": "CT-fixture-audio-mismatch", "rel": "COVERS"}
   ]
 }
