@@ -29,7 +29,6 @@
   let pendingId = $state<string | null>(null);
   let titleDraft = $state('');
   let defaultModel = $state('fixture-replay');
-  let shaDraft = $state<Record<string, string>>({});
   let login = $state({ backend: 'unsupported', requested: false, applied: false });
   let hotkeyShortcut = $state('CommandOrControl+Shift+Space');
   let hotkeyMode = $state('toggle');
@@ -178,6 +177,16 @@
     await startRecord();
   }
 
+  function liveTranscribeModel(): string | undefined {
+    const chosen = engines.find(
+      (e) => e.id === defaultModel && e.live_ready && e.id !== 'fixture-replay',
+    );
+    if (chosen) return chosen.id;
+    const runnable = engines.filter((e) => e.live_ready && e.id !== 'fixture-replay');
+    if (runnable.length === 1) return runnable[0].id;
+    return undefined;
+  }
+
   async function stopAndTranscribe() {
     if (!liveId) return;
     const id = liveId;
@@ -188,7 +197,7 @@
       await api.stop(id);
       busy = 'Transcribing on this Mac…';
       try {
-        const detail = await api.transcribe(id);
+        const detail = await api.transcribe(id, liveTranscribeModel());
         selected = detail;
         titleDraft = detail.session.title;
         tagDraft = detail.tags.join(', ');
@@ -294,17 +303,17 @@
     await api.settingsSet('default_model', id);
   }
 
-  async function installEngine(engineId: string) {
-    const sha = (shaDraft[engineId] ?? '').trim().toLowerCase();
-    if (!sha || sha.length !== 64) {
-      err = 'Paste the 64-character SHA-256 of the local weights file.';
-      return;
-    }
-    const picked = await open({ multiple: false, title: 'Choose local model weights' });
+  async function importEngine(engineId: string) {
+    const directory = engineId === 'parakeet-tdt-0.6b-v3';
+    const picked = await open({
+      multiple: false,
+      directory,
+      title: directory ? 'Choose Parakeet TDT folder' : 'Choose Whisper ggml file',
+    });
     if (!picked || Array.isArray(picked)) return;
-    busy = 'Installing local weights…';
+    busy = 'Importing local weights…';
     try {
-      await api.installModelFile(engineId, picked, sha);
+      await api.importModel(engineId, picked);
       await refresh();
       engines = await api.engines();
     } finally {
@@ -443,7 +452,7 @@
           <em>{s.status} · {s.id}</em>
         </button>
       {:else}
-        <p class="empty">No sessions yet. Record a fixture capture to seed the desk.</p>
+        <p class="empty">No sessions yet. Record on this Mac after consent. Transcribe with a local Whisper file or Parakeet TDT folder — not fixture-replay.</p>
       {/each}
     </aside>
 
@@ -496,7 +505,7 @@
       {:else}
         <div class="blank">
           <p class="wordmark">Quiet notes. Local audio.</p>
-          <p>Sotto does not join the call. Wave 1 records a golden fixture, encrypts it, and transcribes offline.</p>
+          <p>Sotto does not join the call. Live recordings stay encrypted here. Import a local Whisper ggml file or Parakeet TDT folder before Stop can transcribe. make demo still uses fixture-replay.</p>
         </div>
       {/if}
     </main>
@@ -512,6 +521,7 @@
         <li>Audio is encrypted at rest.</li>
         <li>Telemetry is off.</li>
         <li>Cloud engines stay off unless you turn them on.</li>
+        <li>Live transcription needs a local Whisper file or Parakeet TDT folder. Fixture replay is only for make demo.</li>
       </ul>
       <p class="fine">You are responsible for telling others when the law requires consent to record.</p>
       <button class="primary" onclick={() => finishOnboarding().catch(fail)}>Enter the desk</button>
@@ -580,7 +590,7 @@
         {#each engines as engine}
           <div class="engine">
             <strong>{engine.name}</strong>
-            <span class="mono">{engine.mode} · {engine.install_state}</span>
+            <span class="mono">{engine.mode} · {engine.install_state} · live {engine.live_ready ? 'ready' : 'not ready'}</span>
             {#if engine.id === 'parakeet-tdt-0.6b-v3'}
               <span class="mono">runtime {parakeetStatus}</span>
             {/if}
@@ -592,17 +602,13 @@
               <button class="ghost" onclick={() => setDefaultModel(engine.id).catch(fail)}>
                 {defaultModel === engine.id ? 'Default' : 'Use as default'}
               </button>
-              {#if engine.id !== 'fixture-replay' && engine.install_state !== 'ready'}
-                <input
-                  class="tag-input"
-                  placeholder="SHA-256 of local file"
-                  value={shaDraft[engine.id] ?? ''}
-                  oninput={(e) =>
-                    (shaDraft = { ...shaDraft, [engine.id]: (e.currentTarget as HTMLInputElement).value })}
-                />
-                <button class="ghost" onclick={() => installEngine(engine.id).catch(fail)}>Install file</button>
+              {#if engine.id === 'whisper-large-v3-turbo'}
+                <button class="ghost" onclick={() => importEngine(engine.id).catch(fail)}>Import ggml file</button>
               {/if}
-              {#if engine.id !== 'fixture-replay' && engine.install_state === 'ready'}
+              {#if engine.id === 'parakeet-tdt-0.6b-v3'}
+                <button class="ghost" onclick={() => importEngine(engine.id).catch(fail)}>Import TDT folder</button>
+              {/if}
+              {#if engine.id !== 'fixture-replay' && (engine.live_ready || engine.install_state === 'ready')}
                 <button class="ghost" onclick={() => removeEngine(engine.id).catch(fail)}>Remove weights</button>
               {/if}
             </div>
@@ -611,7 +617,7 @@
       {:else}
         <p class="fine">Engine catalog loads when the desk talks to the local store.</p>
       {/if}
-      <p class="fine">Install is something you start. Demo never fetches weights. A failed checksum is discarded.</p>
+      <p class="fine">Import is something you start from a local file or TDT folder. Demo never fetches weights. A dummy checksum blob is not live-ready.</p>
       <p class="wordmark privacy-h">Privacy</p>
       <div class="engine">
         <strong>Telemetry</strong>

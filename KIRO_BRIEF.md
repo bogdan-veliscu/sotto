@@ -8,7 +8,7 @@ Sotto is a **local-first meeting recorder**. Headline: a meeting recorded on thi
 
 PR 0 (shipped): fixture capture → AES-GCM → fixture-replay → FTS5 → delete-all.
 
-**Current DAG wave: 39–40 (`judge-reliability`).** Soft-launch bar: `docs/SOFT_LAUNCH.md`. Make local judge commands deterministic on macOS without weakening production Keychain or changing the fixture demo. See `docs/PR_PLAN.md`.
+**Current DAG wave: 41–42 (`model-onboarding`).** Soft-launch bar: `docs/SOFT_LAUNCH.md`. Honest live-ready, local Whisper/Parakeet import, live Stop never uses fixture-replay. See `docs/PR_PLAN.md`.
 
 ## Commands
 

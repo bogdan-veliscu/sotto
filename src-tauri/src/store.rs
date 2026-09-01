@@ -360,6 +360,14 @@ impl Store {
         self.get_session(session_id)
     }
 
+    pub fn import_model_path(
+        &self,
+        engine_id: &str,
+        source: &Path,
+    ) -> Result<crate::install::InstallResult> {
+        crate::install::import_local(engine_id, &self.data_dir, source)
+    }
+
     pub fn transcribe(
         &self,
         session_id: &str,
@@ -377,13 +385,43 @@ impl Store {
         session_id: &str,
         requested_model: Option<String>,
     ) -> Result<crate::stt::TranscribeJob> {
-        let cloud = self.cloud_enabled()?;
-        let catalog = engines::catalog()?;
+        let wav = self.read_session_wav(session_id)?;
         let requested = requested_model
             .or(self.get_setting("default_model")?)
             .unwrap_or_else(|| FIXTURE_ENGINE_ID.to_string());
-        let engine = engines::resolve_engine(&requested, cloud, &catalog)?;
-        let wav = self.read_session_wav(session_id)?;
+
+        if requested == FIXTURE_ENGINE_ID {
+            if crate::stt::is_golden_wav(&wav) {
+                return Ok(crate::stt::TranscribeJob {
+                    engine_id: FIXTURE_ENGINE_ID.to_string(),
+                    wav,
+                    cache_dir: self.data_dir.clone(),
+                });
+            }
+            return Err(engine_setup_required());
+        }
+
+        let cloud = self.cloud_enabled()?;
+        let catalog = self.list_engines()?;
+        let engine = catalog.iter().find(|e| e.id == requested).ok_or_else(|| {
+            SottoError::app(
+                "ENGINE_UNKNOWN",
+                format!("No transcription engine with id {requested}."),
+                true,
+                "Choose an engine from the catalog.",
+            )
+        })?;
+        if engine.mode != engines::EngineMode::Local && !cloud {
+            return Err(SottoError::app(
+                "CLOUD_DISABLED",
+                format!("Engine {} is not local and cloud mode is off.", engine.id),
+                true,
+                "Pick a local engine, or explicitly enable cloud mode in Settings.",
+            ));
+        }
+        if !engine.live_ready {
+            return Err(engine_setup_required());
+        }
         Ok(crate::stt::TranscribeJob {
             engine_id: engine.id.clone(),
             wav,
@@ -874,6 +912,15 @@ impl Store {
         }
         Ok(removed)
     }
+}
+
+fn engine_setup_required() -> SottoError {
+    SottoError::app(
+        "ENGINE_SETUP_REQUIRED",
+        "This recording is encrypted on this Mac. Import a local Whisper file or Parakeet TDT folder to transcribe it.",
+        true,
+        "Fixture replay is only for make demo. Open Engines, import a local model, then transcribe this session.",
+    )
 }
 
 fn now_rfc3339() -> String {

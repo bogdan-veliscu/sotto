@@ -7,6 +7,7 @@ use crate::error::{Result, SottoError};
 
 pub const WHISPER_ENGINE_ID: &str = "whisper-large-v3-turbo";
 pub const FIXTURE_FALLBACK_ENV: &str = "SOTTO_ALLOW_FIXTURE_FALLBACK";
+const GOLDEN_WAV: &[u8] = include_bytes!("../../fixtures/sessions/CONSULT-001.wav");
 
 /// Work for on-device inference with no Store attached.
 ///
@@ -53,9 +54,14 @@ pub fn fixture_fallback_allowed() -> bool {
     std::env::var(FIXTURE_FALLBACK_ENV).ok().as_deref() == Some("1")
 }
 
+/// True when `wav` is the locked CONSULT-001 fixture capture.
+pub fn is_golden_wav(wav: &[u8]) -> bool {
+    wav == GOLDEN_WAV
+}
+
 /// True if the given path string points at a remote resource. Weights are
 /// local files only; a URL-shaped path is always rejected.
-fn looks_like_url(path: &Path) -> bool {
+pub(crate) fn looks_like_url(path: &Path) -> bool {
     let s = path.to_string_lossy().to_ascii_lowercase();
     s.starts_with("http://") || s.starts_with("https://")
 }
@@ -77,6 +83,14 @@ fn file_is_valid_ggml(path: &Path) -> Result<bool> {
     let mut magic = [0u8; 4];
     let n = file.read(&mut magic)?;
     Ok(is_valid_ggml(&magic[..n]))
+}
+
+/// True when `path` is a local ggml/gguf Whisper file. Never fetches a URL.
+pub fn whisper_layout_ok(path: &Path) -> bool {
+    if looks_like_url(path) || !path.is_file() {
+        return false;
+    }
+    file_is_valid_ggml(path).unwrap_or(false)
 }
 
 fn not_installed() -> SottoError {
@@ -109,8 +123,7 @@ fn model_invalid() -> SottoError {
 ///   `resolve_engine`; this is a defensive guard).
 pub fn transcribe_local(engine_id: &str, wav: &[u8], cache_dir: &Path) -> Result<TranscriptResult> {
     if engine_id == FIXTURE_ENGINE_ID {
-        const GOLDEN: &[u8] = include_bytes!("../../fixtures/sessions/CONSULT-001.wav");
-        if wav != GOLDEN {
+        if !is_golden_wav(wav) {
             return Err(SottoError::app(
                 "FIXTURE_AUDIO_MISMATCH",
                 "fixture-replay only transcribes the golden CONSULT-001 capture.",

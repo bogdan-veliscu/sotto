@@ -381,6 +381,20 @@ pub fn model_install_file(
 }
 
 #[tauri::command]
+pub fn model_import_local(
+    state: State<AppState>,
+    engine_id: String,
+    path: String,
+) -> Result<crate::install::InstallResult, ErrorBody> {
+    state
+        .store
+        .lock()
+        .unwrap()
+        .import_model_path(&engine_id, std::path::Path::new(&path))
+        .map_err(map_err)
+}
+
+#[tauri::command]
 pub fn model_delete(state: State<AppState>, engine_id: String) -> Result<(), ErrorBody> {
     state
         .store

@@ -36,6 +36,10 @@ pub struct Engine {
     pub estimated_speed: String,
     pub estimated_accuracy: String,
     pub install_state: InstallState,
+    /// True only when a compiled decoder and a runnable on-disk layout exist.
+    /// Fixture-replay is never live-ready. A Parakeet checksum `.bin` is not live-ready.
+    #[serde(default)]
+    pub live_ready: bool,
     pub disk_size_mb: u32,
     pub notes: String,
 }
@@ -53,6 +57,7 @@ pub fn catalog() -> Result<Vec<Engine>> {
 /// Resolve a transcription engine. Never silently switches to cloud/api,
 /// and never silently substitutes fixture-replay for a not-ready local engine
 /// unless `SOTTO_ALLOW_FIXTURE_FALLBACK=1` is set.
+#[allow(dead_code)]
 pub fn resolve_engine<'a>(
     requested: &str,
     cloud_enabled: bool,
@@ -101,6 +106,7 @@ pub fn resolve_engine<'a>(
         })
 }
 
+#[allow(dead_code)]
 fn fixture_fallback_allowed() -> bool {
     std::env::var(crate::stt::FIXTURE_FALLBACK_ENV)
         .ok()
@@ -160,6 +166,7 @@ mod tests {
                 estimated_speed: "slow".into(),
                 estimated_accuracy: "n/a".into(),
                 install_state: InstallState::Error,
+                live_ready: false,
                 disk_size_mb: 1,
                 notes: String::new(),
             },
@@ -176,6 +183,7 @@ mod tests {
                 estimated_speed: "fast".into(),
                 estimated_accuracy: "high".into(),
                 install_state: InstallState::Ready,
+                live_ready: false,
                 disk_size_mb: 0,
                 notes: String::new(),
             },
@@ -192,6 +200,7 @@ mod tests {
                 estimated_speed: "instant".into(),
                 estimated_accuracy: "fixture".into(),
                 install_state: InstallState::Ready,
+                live_ready: false,
                 disk_size_mb: 0,
                 notes: String::new(),
             },

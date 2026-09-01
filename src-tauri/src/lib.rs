@@ -57,7 +57,10 @@ pub fn demo_pipeline(data_dir: &Path) -> error::Result<DemoReport> {
     store.start_recording(&session.id)?;
     let wav = include_bytes!("../../fixtures/sessions/CONSULT-001.wav");
     store.finalize_with_wav(&session.id, wav)?;
-    let detail = store.transcribe(&session.id, None)?;
+    let detail = store.transcribe(
+        &session.id,
+        Some(crate::engines::FIXTURE_ENGINE_ID.to_string()),
+    )?;
     let hits = store.search("privileged", 10)?;
     let audio_is_ciphertext = store.audio_is_ciphertext(&session.id)?;
     let engine_id = detail.session.model_id.clone().unwrap_or_default();
@@ -134,6 +137,7 @@ pub fn run() {
             commands::privacy_settings,
             commands::sessions_delete,
             commands::model_install_file,
+            commands::model_import_local,
             commands::model_delete,
             commands::data_delete_all,
             commands::key_report,

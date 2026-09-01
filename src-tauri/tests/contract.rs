@@ -6,7 +6,8 @@ use sotto_lib::capture::{
 };
 use sotto_lib::demo_pipeline;
 use sotto_lib::install::{
-    delete_model, install_bytes, overlay_catalog, parakeet_weights_path, PARAKEET_ENGINE_ID,
+    delete_model, import_local, install_bytes, overlay_catalog, parakeet_model_dir,
+    parakeet_tdt_layout_ok, parakeet_weights_path, PARAKEET_ENGINE_ID,
 };
 use sotto_lib::notes::extract_notes;
 use sotto_lib::search::SearchFilter;
@@ -946,4 +947,122 @@ fn ct_source_permission_copy() {
         mixed.contains("not") && mixed.contains("mic"),
         "mixed must refuse mic-only fallback: {mixed}"
     );
+}
+
+/// CT-model-runnable-ready
+/// Live-ready needs a compiled decoder plus a runnable layout. A Parakeet
+/// checksum blob may overlay as installed/ready without being live-ready.
+#[test]
+fn ct_model_runnable_ready() {
+    let dir = tempdir().unwrap();
+    install_bytes(
+        PARAKEET_ENGINE_ID,
+        dir.path(),
+        PARAKEET_BLOB,
+        PARAKEET_SHA256,
+    )
+    .expect("blob");
+    let engines = overlay_catalog(catalog().expect("catalog"), dir.path());
+    let parakeet = engines
+        .iter()
+        .find(|e| e.id == PARAKEET_ENGINE_ID)
+        .expect("parakeet");
+    assert_eq!(parakeet.install_state, InstallState::Ready);
+    assert!(!parakeet.live_ready, "checksum blob must not be live-ready");
+    let fixture = engines
+        .iter()
+        .find(|e| e.id == "fixture-replay")
+        .expect("fixture");
+    assert!(!fixture.live_ready, "fixture-replay is demo-only");
+
+    let tdt = parakeet_model_dir(dir.path());
+    fs::create_dir_all(&tdt).unwrap();
+    fs::write(tdt.join("encoder-model.onnx"), b"x").unwrap();
+    fs::write(tdt.join("decoder_joint-model.onnx"), b"x").unwrap();
+    fs::write(tdt.join("vocab.txt"), b"x").unwrap();
+    let engines = overlay_catalog(catalog().expect("catalog"), dir.path());
+    let parakeet = engines
+        .iter()
+        .find(|e| e.id == PARAKEET_ENGINE_ID)
+        .expect("parakeet tdt");
+    assert_eq!(parakeet.live_ready, cfg!(feature = "parakeet"));
+
+    let whisper = whisper_weights_path(dir.path());
+    fs::create_dir_all(whisper.parent().unwrap()).unwrap();
+    fs::write(&whisper, b"ggml-tiny-layout").unwrap();
+    let engines = overlay_catalog(catalog().expect("catalog"), dir.path());
+    let whisper_engine = engines
+        .iter()
+        .find(|e| e.id == WHISPER_ENGINE_ID)
+        .expect("whisper");
+    assert_eq!(whisper_engine.live_ready, cfg!(feature = "whisper"));
+}
+
+/// CT-model-import-local
+/// Whisper file and Parakeet TDT directory copy in locally. URLs are rejected.
+/// A failed import leaves the previous Whisper file. Demo still does not fetch.
+#[test]
+fn ct_model_import_local() {
+    let dir = tempdir().unwrap();
+    let src = dir.path().join("src-whisper.bin");
+    fs::write(&src, b"ggml-tiny-layout").unwrap();
+    let imported = import_local(WHISPER_ENGINE_ID, dir.path(), &src).expect("whisper import");
+    assert_eq!(imported.engine_id, WHISPER_ENGINE_ID);
+    assert!(whisper_weights_path(dir.path()).exists());
+
+    let bad = dir.path().join("bad.bin");
+    fs::write(&bad, b"not-ggml").unwrap();
+    let err = import_local(WHISPER_ENGINE_ID, dir.path(), &bad).unwrap_err();
+    assert_eq!(err.code(), "ENGINE_MODEL_INVALID");
+    let kept = fs::read(whisper_weights_path(dir.path())).unwrap();
+    assert_eq!(kept, b"ggml-tiny-layout");
+
+    let tdt_src = dir.path().join("tdt-src");
+    fs::create_dir_all(&tdt_src).unwrap();
+    fs::write(tdt_src.join("encoder-model.onnx"), b"enc").unwrap();
+    fs::write(tdt_src.join("decoder_joint-model.onnx"), b"dec").unwrap();
+    fs::write(tdt_src.join("vocab.txt"), b"a").unwrap();
+    import_local(PARAKEET_ENGINE_ID, dir.path(), &tdt_src).expect("tdt import");
+    assert!(parakeet_tdt_layout_ok(&parakeet_model_dir(dir.path())));
+
+    let err = import_local(
+        WHISPER_ENGINE_ID,
+        dir.path(),
+        std::path::Path::new("https://example.com/model.bin"),
+    )
+    .unwrap_err();
+    assert_eq!(err.code(), "ENGINE_MODEL_INVALID");
+
+    let report = demo_pipeline(dir.path()).expect("demo after import");
+    assert_eq!(report.network_calls, 0);
+    assert_eq!(report.engine_id, "fixture-replay");
+}
+
+/// CT-live-engine-runnable
+/// Live (non-golden) audio with the default fixture engine stays recorded and
+/// returns ENGINE_SETUP_REQUIRED. demo_pipeline still uses fixture-replay.
+#[test]
+fn ct_live_engine_runnable() {
+    let dir = tempdir().unwrap();
+    let store = Store::open(dir.path()).unwrap();
+    let session = store
+        .create_session(Some("Live take".into()), "mic")
+        .unwrap();
+    store.acknowledge_consent(&session.id).unwrap();
+    store.start_recording(&session.id).unwrap();
+    let sine = record_sine(200, 16_000).unwrap();
+    store
+        .finalize_with_wav(&session.id, &sine.wav)
+        .expect("finalize live wav");
+    assert!(store.audio_is_ciphertext(&session.id).unwrap());
+    let err = store.transcribe(&session.id, None).unwrap_err();
+    assert_eq!(err.code(), "ENGINE_SETUP_REQUIRED");
+    assert!(err.recoverable());
+    let detail = store.get_detail(&session.id).unwrap();
+    assert_eq!(detail.session.status, "recorded");
+    assert!(detail.audio_encrypted);
+
+    let report = demo_pipeline(dir.path()).expect("demo");
+    assert_eq!(report.engine_id, "fixture-replay");
+    assert_eq!(report.network_calls, 0);
 }
