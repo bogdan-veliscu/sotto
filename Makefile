@@ -5,6 +5,7 @@ CARGO = cargo
 NPM = npm
 MANIFEST = --manifest-path src-tauri/Cargo.toml
 CORE = --no-default-features
+JUDGE_KEYSTORE = SOTTO_JUDGE_KEYSTORE=isolated-file
 
 graph:
 	python3 harness/scripts/validate_graph.py
@@ -17,17 +18,17 @@ lint:
 	$(NPM) run check
 
 verify: graph
-	$(CARGO) test $(MANIFEST) $(CORE) --lib
+	$(JUDGE_KEYSTORE) $(CARGO) test $(MANIFEST) $(CORE) --lib
 	$(NPM) run check
 
 contract: graph
-	$(CARGO) test $(MANIFEST) $(CORE) --lib --test contract -- --nocapture
+	$(JUDGE_KEYSTORE) $(CARGO) test $(MANIFEST) $(CORE) --lib --test contract -- --nocapture
 	$(PYTEST) tests/contract -q --tb=short
 
 test: verify contract
 
 demo:
-	$(CARGO) run $(MANIFEST) $(CORE) --quiet --bin sotto-demo
+	$(JUDGE_KEYSTORE) $(CARGO) run $(MANIFEST) $(CORE) --quiet --bin sotto-demo
 
 dev:
 	$(NPM) run tauri dev
@@ -38,8 +39,8 @@ build:
 
 # Same gates as .github/workflows/ci.yml (minus npm ci).
 ci: graph
-	$(CARGO) test $(MANIFEST) $(CORE) --lib --test contract
-	$(CARGO) run $(MANIFEST) $(CORE) --quiet --bin sotto-demo
+	$(JUDGE_KEYSTORE) $(CARGO) test $(MANIFEST) $(CORE) --lib --test contract
+	$(JUDGE_KEYSTORE) $(CARGO) run $(MANIFEST) $(CORE) --quiet --bin sotto-demo
 	$(PYTEST) tests/contract -q --tb=short
 	$(NPM) run check
 	@echo "sotto ci ok"

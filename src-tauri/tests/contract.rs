@@ -11,7 +11,7 @@ use sotto_lib::install::{
 use sotto_lib::notes::extract_notes;
 use sotto_lib::search::SearchFilter;
 use sotto_lib::stt::{transcribe_local, whisper_weights_path, WHISPER_ENGINE_ID};
-use sotto_lib::{catalog, InstallState, Store};
+use sotto_lib::{catalog, keys, InstallState, Store};
 use tempfile::tempdir;
 
 const FIXTURE_WAV: &[u8] = include_bytes!("../../fixtures/sessions/CONSULT-001.wav");
@@ -336,11 +336,16 @@ fn ct_keychain() {
     let store = Store::open(dir.path()).unwrap();
     let report = store.key_report().expect("key_report");
     assert_eq!(report.key_len, 32);
-    #[cfg(target_os = "macos")]
-    assert_eq!(report.backend, "keychain");
-    #[cfg(not(target_os = "macos"))]
-    {
+    if keys::judge_keystore_active() {
+        assert_eq!(report.backend, "judge-file");
+    } else {
+        #[cfg(target_os = "macos")]
+        assert_eq!(report.backend, "keychain");
+        #[cfg(not(target_os = "macos"))]
         assert_eq!(report.backend, "file");
+    }
+    if report.backend != "keychain" {
+        assert!(matches!(report.backend.as_str(), "file" | "judge-file"));
         let meta = fs::metadata(dir.path().join("master.key")).unwrap();
         use std::os::unix::fs::PermissionsExt;
         assert_eq!(meta.permissions().mode() & 0o777, 0o600);
@@ -361,6 +366,61 @@ fn ct_keychain() {
         .expect("scrub");
     assert!(n >= 1);
     assert!(!leak.exists(), "plaintext WAV leftover");
+}
+
+#[test]
+fn ct_keychain_test_deterministic() {
+    #[cfg(target_os = "macos")]
+    assert!(
+        keys::judge_keystore_active(),
+        "macOS judge must explicitly select its isolated keystore"
+    );
+    let dir = tempdir().unwrap();
+    let first = Store::open(dir.path())
+        .expect("first judge open")
+        .key_report()
+        .expect("first key report");
+    let expected_backend = if keys::judge_keystore_active() {
+        "judge-file"
+    } else {
+        "file"
+    };
+    assert_eq!(first.backend, expected_backend);
+    assert_eq!(first.key_len, 32);
+
+    let key_path = dir.path().join(keys::KEY_FILE);
+    let meta = fs::metadata(&key_path).expect("isolated key file");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        assert_eq!(meta.permissions().mode() & 0o777, 0o600);
+    }
+
+    let second = Store::open(dir.path())
+        .expect("second judge open")
+        .key_report()
+        .expect("second key report");
+    assert_eq!(second.backend, expected_backend);
+    assert_eq!(second.fingerprint, first.fingerprint);
+}
+
+#[test]
+fn ct_judge_completes() {
+    #[cfg(target_os = "macos")]
+    assert!(keys::judge_keystore_active());
+    let dir = tempdir().unwrap();
+    let report = demo_pipeline(dir.path()).expect("offline judge pipeline");
+    assert_eq!(report.status, "transcribed");
+    assert_eq!(report.engine_id, "fixture-replay");
+    assert_eq!(report.engine_mode, "local");
+    assert_eq!(report.network_calls, 0);
+    assert_eq!(report.telemetry, "off");
+    assert_eq!(report.cloud_mode, "off");
+    assert!(report.consent_enforced);
+    assert!(report.audio_is_ciphertext);
+    assert!(report.delete_all_clears_search);
+    assert!(!whisper_weights_path(dir.path()).exists());
+    assert!(!parakeet_weights_path(dir.path()).exists());
 }
 
 #[test]
