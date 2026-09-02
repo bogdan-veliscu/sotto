@@ -13,8 +13,9 @@ Each engine must eventually implement: availability, install/download, health, v
 | id | Role |
 |---|---|
 | `fixture-replay` | Always-ready local demo. Golden transcript. |
-| `parakeet-tdt-0.6b-v3` | Second local engine. Decode when `parakeet` is compiled. Real weights are a local TDT directory, not the checksum test blob. |
-| `whisper-large-v3-turbo` | Planned robustness baseline. Not installed. Local weights, not the API. |
+| `apple-speech-ondevice` | macOS on-device SpeechAnalyzer. Audio is not sent to Apple servers. |
+| `parakeet-tdt-0.6b-v3` | Local TDT. Import a folder or user-started INT8/FP32 download. Dummy checksum blob is not a model. |
+| `whisper-large-v3-turbo` | Compatibility baseline. Local ggml import. Not the API. |
 
 ## Selection policy
 
@@ -23,6 +24,6 @@ Each engine must eventually implement: availability, install/download, health, v
 3. If hardware is insufficient, recommend a smaller local model.
 4. Never silently switch to cloud unless `cloud_mode=on`.
 
-## Downloads (later)
+## Downloads
 
-App-managed cache, checksum, progress, delete/reinstall. Never in `make demo`.
+User-started Parakeet INT8/FP32 from pinned Hugging Face files. Staging + layout check + atomic activate. Never in `make demo`. `import_local` still refuses URLs.

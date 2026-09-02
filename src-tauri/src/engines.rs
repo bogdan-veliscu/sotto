@@ -38,6 +38,7 @@ pub struct Engine {
     pub install_state: InstallState,
     /// True only when a compiled decoder and a runnable on-disk layout exist.
     /// Fixture-replay is never live-ready. A Parakeet checksum `.bin` is not live-ready.
+    /// Apple Speech is live-ready only when the on-device recognizer is available.
     #[serde(default)]
     pub live_ready: bool,
     pub disk_size_mb: u32,

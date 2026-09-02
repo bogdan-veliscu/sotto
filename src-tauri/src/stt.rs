@@ -7,6 +7,8 @@ use crate::error::{Result, SottoError};
 
 pub const WHISPER_ENGINE_ID: &str = "whisper-large-v3-turbo";
 pub const FIXTURE_FALLBACK_ENV: &str = "SOTTO_ALLOW_FIXTURE_FALLBACK";
+/// Magic-only stubs are not live-ready. Real ggml-large-v3-turbo is ~800 MiB.
+pub const WHISPER_MIN_LIVE_BYTES: u64 = 1_048_576;
 const GOLDEN_WAV: &[u8] = include_bytes!("../../fixtures/sessions/CONSULT-001.wav");
 
 /// Work for on-device inference with no Store attached.
@@ -93,6 +95,16 @@ pub fn whisper_layout_ok(path: &Path) -> bool {
     file_is_valid_ggml(path).unwrap_or(false)
 }
 
+/// Live-ready Whisper needs a valid magic **and** more than a truncated stub.
+pub fn whisper_live_layout_ok(path: &Path) -> bool {
+    if !whisper_layout_ok(path) {
+        return false;
+    }
+    std::fs::metadata(path)
+        .map(|meta| meta.len() >= WHISPER_MIN_LIVE_BYTES)
+        .unwrap_or(false)
+}
+
 fn not_installed() -> SottoError {
     SottoError::app(
         "ENGINE_NOT_INSTALLED",
@@ -142,6 +154,10 @@ pub fn transcribe_local(engine_id: &str, wav: &[u8], cache_dir: &Path) -> Result
         return transcribe_parakeet(wav, cache_dir);
     }
 
+    if engine_id == crate::stt_apple::APPLE_SPEECH_ENGINE_ID {
+        return crate::stt_apple::transcribe(wav, cache_dir);
+    }
+
     // Non-fixture, non-whisper: consult the catalog. Cloud/api engines are
     // never run locally without explicit cloud mode (enforced upstream).
     let catalog = engines::catalog()?;
@@ -183,6 +199,10 @@ fn transcribe_whisper(wav: &[u8], cache_dir: &Path) -> Result<TranscriptResult> 
         return Err(model_invalid());
     }
 
+    if !whisper_live_layout_ok(&weights) {
+        return Err(model_invalid());
+    }
+
     // Valid local weights present.
     run_whisper_inference(WHISPER_ENGINE_ID, wav, &weights)
 }
@@ -192,7 +212,7 @@ fn parakeet_not_installed() -> SottoError {
         "ENGINE_NOT_INSTALLED",
         "Parakeet TDT weights are not installed on this Mac.",
         true,
-        "Place encoder-model.onnx, decoder_joint-model.onnx, and vocab.txt in the local TDT folder. Sotto will not download them or use the cloud.",
+        "Download the pinned TDT pack from Models, or import a local folder. Sotto will not use the cloud.",
     )
 }
 

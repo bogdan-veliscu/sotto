@@ -514,7 +514,27 @@
     },
     {"id": "SPEC-DOCS-CLOSEOUT", "type": "spec", "kiro_name": "docs-readme-closeout", "wave": [47, 48]},
     {"id": "CT-docs-current", "type": "contract_test", "path": "tests/contract/test_docs.py"},
-    {"id": "CT-coverage-honesty", "type": "contract_test", "path": "tests/contract/test_docs.py"}
+    {"id": "CT-coverage-honesty", "type": "contract_test", "path": "tests/contract/test_docs.py"},
+    {
+      "id": "INV-APPLE-SPEECH-ONDEVICE",
+      "type": "invariant",
+      "severity": "CRITICAL",
+      "control_id": "CONTROL_APPLE_SPEECH_ONDEVICE",
+      "statement": "Apple Speech is an on-device local engine and never a silent server path.",
+      "ears": "WHEN apple-speech-ondevice is selected, THE SYSTEM SHALL use on-device Apple speech only; Linux CI and demo SHALL NOT invoke it."
+    },
+    {"id": "SPEC-APPLE-SPEECH", "type": "spec", "kiro_name": "apple-speech", "wave": [49]},
+    {"id": "CT-apple-speech-ondevice", "type": "contract_test", "path": "src-tauri/tests/contract.rs"},
+    {
+      "id": "INV-PARAKEET-DOWNLOAD",
+      "type": "invariant",
+      "severity": "HIGH",
+      "control_id": "CONTROL_PARAKEET_DOWNLOAD",
+      "statement": "Parakeet download is user-started, staged, and never part of demo or import.",
+      "ears": "WHEN the user downloads Parakeet TDT weights, THE SYSTEM SHALL fetch pinned files into staging and activate atomically; import_local and demo SHALL NOT download."
+    },
+    {"id": "SPEC-PARAKEET-DOWNLOAD", "type": "spec", "kiro_name": "parakeet-download", "wave": [50]},
+    {"id": "CT-parakeet-download", "type": "contract_test", "path": "src-tauri/tests/contract.rs"}
   ],
   "edges": [
     {"from": "AudioAsset", "to": "Session", "rel": "REFERENCES"},
@@ -627,6 +647,10 @@
     {"from": "INV-DOCS-CURRENT", "to": "CT-docs-current", "rel": "ENFORCED_BY"},
     {"from": "INV-COVERAGE-HONESTY", "to": "CT-coverage-honesty", "rel": "ENFORCED_BY"},
     {"from": "SPEC-DOCS-CLOSEOUT", "to": "CT-docs-current", "rel": "COVERS"},
-    {"from": "SPEC-DOCS-CLOSEOUT", "to": "CT-coverage-honesty", "rel": "COVERS"}
+    {"from": "SPEC-DOCS-CLOSEOUT", "to": "CT-coverage-honesty", "rel": "COVERS"},
+    {"from": "INV-APPLE-SPEECH-ONDEVICE", "to": "CT-apple-speech-ondevice", "rel": "ENFORCED_BY"},
+    {"from": "SPEC-APPLE-SPEECH", "to": "CT-apple-speech-ondevice", "rel": "COVERS"},
+    {"from": "INV-PARAKEET-DOWNLOAD", "to": "CT-parakeet-download", "rel": "ENFORCED_BY"},
+    {"from": "SPEC-PARAKEET-DOWNLOAD", "to": "CT-parakeet-download", "rel": "COVERS"}
   ]
 }

@@ -16,6 +16,7 @@ pub mod presence;
 pub mod search;
 mod store;
 pub mod stt;
+mod stt_apple;
 #[cfg(feature = "parakeet")]
 mod stt_parakeet;
 pub use capture::{mix_pcm, source_permission_hint, system_tap_status, CaptureSource};
@@ -30,6 +31,8 @@ use serde::Serialize;
 
 #[cfg(feature = "desktop")]
 mod commands;
+#[cfg(feature = "desktop")]
+mod fn_tap;
 
 #[derive(Debug, Serialize)]
 pub struct DemoReport {
@@ -138,6 +141,7 @@ pub fn run() {
             commands::sessions_delete,
             commands::model_install_file,
             commands::model_import_local,
+            commands::model_download_parakeet,
             commands::model_delete,
             commands::data_delete_all,
             commands::key_report,
@@ -145,6 +149,7 @@ pub fn run() {
             commands::presence_login_get,
             commands::presence_login_set,
             commands::presence_hud,
+            commands::hud_tick,
             commands::hotkey_get,
             commands::hotkey_set,
             commands::meeting_detect_get,

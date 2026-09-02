@@ -526,10 +526,31 @@ fn ct_hud_recording() {
     assert!(!live.paused);
     assert_eq!(live.clock, "01:05");
     assert_eq!(live.caption, "on this Mac");
+    assert_eq!(live.status_label, "Rec");
+    let with_src = sotto_lib::presence::hud_view("recording", 1_000, "mic", "Standup", "SES-1", 40);
+    assert_eq!(with_src.source_label, "Mic");
+    assert_eq!(with_src.status_label, "Rec");
+    assert_eq!(with_src.level, 40);
     let paused = sotto_lib::presence::hud_from_status("paused", 1_000);
     assert!(paused.paused);
     assert!(!paused.led_on);
     assert_eq!(paused.clock, "00:01");
+    assert_eq!(paused.status_label, "Paused");
+}
+
+#[test]
+fn ct_capture_peak_level() {
+    let dir = tempdir().unwrap();
+    let mut rec =
+        ChunkedRecorder::start(&dir.path().join("peak"), CaptureConfig::default()).unwrap();
+    assert_eq!(rec.take_level(), 0);
+    rec.write_pcm(&[i16::MAX]).unwrap();
+    assert_eq!(rec.take_level(), 100);
+    let decayed = rec.take_level();
+    assert!(
+        decayed < 100,
+        "peak must decay after take_level, got {decayed}"
+    );
 }
 
 #[test]
@@ -563,6 +584,20 @@ fn ct_hotkey_mode() {
     assert_eq!(sotto_lib::hotkey::parse_hotkey_mode("").unwrap(), "toggle");
     let err = sotto_lib::hotkey::parse_hotkey_mode("silent").unwrap_err();
     assert_eq!(err.code(), "HOTKEY_INVALID");
+}
+
+#[test]
+fn ct_fn_gesture() {
+    assert_eq!(sotto_lib::hotkey::fn_gesture(0), "toggle");
+    assert_eq!(sotto_lib::hotkey::fn_gesture(279), "toggle");
+    assert_eq!(sotto_lib::hotkey::fn_gesture(280), "ptt");
+    assert_eq!(sotto_lib::hotkey::fn_gesture(1_000), "ptt");
+    assert!(sotto_lib::hotkey::is_fn_shortcut("Fn"));
+    assert!(sotto_lib::hotkey::is_fn_shortcut("globe"));
+    assert!(!sotto_lib::hotkey::is_fn_shortcut(
+        sotto_lib::hotkey::DEFAULT_TOGGLE
+    ));
+    assert_eq!(sotto_lib::hotkey::parse_hotkey("Fn").unwrap(), "Fn");
 }
 
 #[test]
@@ -995,6 +1030,19 @@ fn ct_model_runnable_ready() {
         .iter()
         .find(|e| e.id == WHISPER_ENGINE_ID)
         .expect("whisper");
+    assert!(
+        !whisper_engine.live_ready,
+        "magic-only Whisper stub must not be live-ready"
+    );
+
+    let mut live_bytes = vec![0u8; sotto_lib::stt::WHISPER_MIN_LIVE_BYTES as usize];
+    live_bytes[..4].copy_from_slice(b"ggml");
+    fs::write(&whisper, &live_bytes).unwrap();
+    let engines = overlay_catalog(catalog().expect("catalog"), dir.path());
+    let whisper_engine = engines
+        .iter()
+        .find(|e| e.id == WHISPER_ENGINE_ID)
+        .expect("whisper sized");
     assert_eq!(whisper_engine.live_ready, cfg!(feature = "whisper"));
 }
 
@@ -1061,6 +1109,127 @@ fn ct_live_engine_runnable() {
     let detail = store.get_detail(&session.id).unwrap();
     assert_eq!(detail.session.status, "recorded");
     assert!(detail.audio_encrypted);
+
+    let report = demo_pipeline(dir.path()).expect("demo");
+    assert_eq!(report.engine_id, "fixture-replay");
+    assert_eq!(report.network_calls, 0);
+}
+
+/// CT-apple-speech-ondevice
+/// Catalog engine is local. Linux is not live-ready and cannot transcribe.
+/// Demo never selects Apple Speech.
+#[test]
+fn ct_apple_speech_ondevice() {
+    let dir = tempdir().unwrap();
+    let engines = overlay_catalog(catalog().expect("catalog"), dir.path());
+    let apple = engines
+        .iter()
+        .find(|e| e.id == "apple-speech-ondevice")
+        .expect("apple speech");
+    assert!(
+        apple.notes.to_lowercase().contains("not sent")
+            || apple.notes.to_lowercase().contains("on-device"),
+        "apple notes must stay on-device: {}",
+        apple.notes
+    );
+    #[cfg(target_os = "macos")]
+    {
+        assert!(
+            apple.live_ready,
+            "macOS 26+ must offer Apple Speech without a download"
+        );
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        assert!(!apple.live_ready, "Linux must not claim Apple Speech ready");
+        let err = transcribe_local("apple-speech-ondevice", FIXTURE_WAV, dir.path()).unwrap_err();
+        assert_eq!(err.code(), "ENGINE_NOT_BUILT");
+        assert!(err.recoverable());
+    }
+    let report = demo_pipeline(dir.path()).expect("demo");
+    assert_eq!(report.engine_id, "fixture-replay");
+    assert_eq!(report.network_calls, 0);
+}
+
+/// CT-parakeet-download
+/// User-started download uses a fetcher and pinned Hugging Face URLs.
+/// Failed downloads keep the previous TDT folder. import_local still
+/// rejects URLs. Demo does not download.
+#[test]
+fn ct_parakeet_download() {
+    use sotto_lib::install::{download_parakeet, download_parakeet_with_progress};
+    use sotto_lib::SottoError;
+
+    let dir = tempdir().unwrap();
+    let tdt_src = dir.path().join("tdt-src");
+    fs::create_dir_all(&tdt_src).unwrap();
+    fs::write(tdt_src.join("encoder-model.onnx"), b"enc-keep").unwrap();
+    fs::write(tdt_src.join("decoder_joint-model.onnx"), b"dec-keep").unwrap();
+    fs::write(tdt_src.join("vocab.txt"), b"v-keep").unwrap();
+    import_local(PARAKEET_ENGINE_ID, dir.path(), &tdt_src).expect("seed");
+
+    let fail = |_url: &str, _dest: &std::path::Path| -> Result<(), SottoError> {
+        Err(SottoError::app(
+            "DOWNLOAD_FAILED",
+            "injected failure",
+            true,
+            "keep previous",
+        ))
+    };
+    let err = download_parakeet(dir.path(), "int8", &fail).unwrap_err();
+    assert_eq!(err.code(), "DOWNLOAD_FAILED");
+    let kept = parakeet_model_dir(dir.path());
+    assert_eq!(
+        fs::read(kept.join("encoder-model.onnx")).unwrap(),
+        b"enc-keep"
+    );
+
+    let seen = std::sync::Mutex::new(Vec::new());
+    let fetch = |url: &str, dest: &std::path::Path| -> Result<(), SottoError> {
+        assert!(
+            url.starts_with("https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/"),
+            "unpinned url: {url}"
+        );
+        seen.lock().unwrap().push(url.to_string());
+        let name = url.rsplit('/').next().unwrap_or("x");
+        fs::write(dest, name.as_bytes()).map_err(SottoError::from)?;
+        Ok(())
+    };
+    download_parakeet(dir.path(), "int8", &fetch).expect("int8");
+    assert!(parakeet_tdt_layout_ok(&parakeet_model_dir(dir.path())));
+    {
+        let urls = seen.lock().unwrap();
+        assert_eq!(urls.len(), 3);
+        assert!(urls
+            .iter()
+            .all(|u| u.contains("8f23f0c03c8761650bdb5b40aaf3e40d2c15f1ce")));
+    }
+
+    let ticks = std::sync::Mutex::new(Vec::new());
+    download_parakeet_with_progress(dir.path(), "int8", &fetch, &|p| {
+        ticks.lock().unwrap().push(p.phase.clone())
+    })
+    .expect("progress");
+    let phases = ticks.lock().unwrap().clone();
+    assert!(
+        phases.iter().any(|p| p == "start"),
+        "desk needs a start tick so download is visible: {phases:?}"
+    );
+    assert!(
+        phases.iter().any(|p| p == "done"),
+        "desk needs a done tick: {phases:?}"
+    );
+
+    let err = import_local(
+        PARAKEET_ENGINE_ID,
+        dir.path(),
+        std::path::Path::new("https://huggingface.co/istupakov/model"),
+    )
+    .unwrap_err();
+    assert_eq!(err.code(), "ENGINE_MODEL_INVALID");
+
+    let unknown = download_parakeet(dir.path(), "gpu", &fetch).unwrap_err();
+    assert_eq!(unknown.code(), "ENGINE_UNKNOWN");
 
     let report = demo_pipeline(dir.path()).expect("demo");
     assert_eq!(report.engine_id, "fixture-replay");

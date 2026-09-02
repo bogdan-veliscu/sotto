@@ -8,5 +8,7 @@
   <string>Sotto captures system audio locally so a meeting can be transcribed on this Mac without a bot joining the call. Audio is not uploaded by default.</string>
   <key>NSScreenCaptureUsageDescription</key>
   <string>Sotto uses Screen Recording only to tap what you already hear on this Mac. It does not join meetings as a bot. Audio stays local unless you export it.</string>
+  <key>NSSpeechRecognitionUsageDescription</key>
+  <string>Sotto transcribes with Apple on-device speech on this Mac. Meeting audio is not sent to Apple servers.</string>
 </dict>
 </plist>

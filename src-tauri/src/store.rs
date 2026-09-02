@@ -368,6 +368,11 @@ impl Store {
         crate::install::import_local(engine_id, &self.data_dir, source)
     }
 
+    #[allow(dead_code)]
+    pub fn data_dir(&self) -> PathBuf {
+        self.data_dir.clone()
+    }
+
     pub fn transcribe(
         &self,
         session_id: &str,
@@ -917,9 +922,9 @@ impl Store {
 fn engine_setup_required() -> SottoError {
     SottoError::app(
         "ENGINE_SETUP_REQUIRED",
-        "This recording is encrypted on this Mac. Import a local Whisper file or Parakeet TDT folder to transcribe it.",
+        "This recording is encrypted on this Mac. Use Apple on-device Speech, or install Parakeet / Whisper, then transcribe it.",
         true,
-        "Fixture replay is only for make demo. Open Engines, import a local model, then transcribe this session.",
+        "Fixture replay is only for make demo. Open Models: Apple Speech needs no download; Parakeet can be downloaded or imported.",
     )
 }
 
