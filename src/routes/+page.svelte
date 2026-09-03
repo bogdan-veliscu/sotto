@@ -2,12 +2,21 @@
   import { onMount } from 'svelte';
   import { listen } from '@tauri-apps/api/event';
   import { api, formatClock, formatStamp, isTauri } from '$lib/api';
-  import type { Engine, PrivacySettings, SearchHit, Session, SessionDetail } from '$lib/types';
+  import type {
+    Engine,
+    PrivacySettings,
+    RecoverableCapture,
+    SearchHit,
+    Session,
+    SessionDetail,
+  } from '$lib/types';
   import { open, save } from '@tauri-apps/plugin-dialog';
 
   let tauri = $state(false);
   let onboarded = $state(false);
   let sessions = $state<Session[]>([]);
+  let recoveries = $state<RecoverableCapture[]>([]);
+  let discardId = $state<string | null>(null);
   let engines = $state<Engine[]>([]);
   let selected = $state<SessionDetail | null>(null);
   let query = $state('');
@@ -67,6 +76,29 @@
   async function refresh() {
     sessions = await api.sessions();
     engines = await api.engines();
+    recoveries = await api.recoveries();
+  }
+
+  async function recoverCapture(sessionId: string) {
+    err = '';
+    busy = 'Recovering…';
+    try {
+      const session = await api.recoverLive(sessionId);
+      await refresh();
+      await openSession(session.id);
+    } finally {
+      busy = '';
+    }
+  }
+
+  async function confirmDiscardLive() {
+    if (!discardId) return;
+    err = '';
+    const id = discardId;
+    discardId = null;
+    await api.discardLive(id);
+    await refresh();
+    if (selected?.session.id === id) await openSession(id);
   }
 
   async function openSession(id: string) {
@@ -653,6 +685,19 @@
   {#if err}
     <div class="banner bad">{err}</div>
   {/if}
+  {#if recoveries.length}
+    <div class="banner recover" role="status">
+      <p>A recording did not finish. Recover encrypts it on this Mac. Discard deletes only those chunks.</p>
+      {#each recoveries as rec}
+        <div class="recover-row">
+          <strong>{rec.title}</strong>
+          <span>{rec.chunk_count} chunks · {formatClock(rec.duration_ms)}</span>
+          <button class="primary" disabled={!tauri || !!busy} onclick={() => recoverCapture(rec.session_id).catch(fail)}>Recover</button>
+          <button class="ghost" disabled={!tauri || !!busy} onclick={() => (discardId = rec.session_id)}>Discard</button>
+        </div>
+      {/each}
+    </div>
+  {/if}
 
   <div class="body">
     <aside>
@@ -820,6 +865,19 @@
       <div class="actions">
         <button class="ghost" onclick={() => (deleteAllOpen = false)}>Cancel</button>
         <button class="danger" onclick={() => confirmDeleteAll().catch(fail)}>Delete all</button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+{#if discardId}
+  <div class="modal">
+    <div class="card">
+      <p class="wordmark">Discard this unfinished recording?</p>
+      <p>Only the leftover chunks for that session are deleted. This cannot be undone.</p>
+      <div class="actions">
+        <button class="ghost" onclick={() => (discardId = null)}>Cancel</button>
+        <button class="danger" onclick={() => confirmDiscardLive().catch(fail)}>Discard</button>
       </div>
     </div>
   </div>
@@ -1054,6 +1112,8 @@
   button:disabled { opacity: 0.4; cursor: not-allowed; }
   .banner { padding: 10px 20px; background: #241c14; color: var(--mute); font-size: 13px; }
   .banner.bad { background: #3a1814; color: #f3c0b6; }
+  .banner.recover { background: #241810; color: var(--paper); display: grid; gap: 10px; }
+  .recover-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
   .dl-dock {
     position: fixed;
     left: 16px;

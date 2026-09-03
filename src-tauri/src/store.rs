@@ -5,6 +5,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
 use uuid::Uuid;
 
+use crate::capture::{self, ChunkedRecorder};
 use crate::crypto::{self, KEY_LEN};
 use crate::engines::{self, Engine, TranscriptResult, FIXTURE_ENGINE_ID};
 use crate::error::{Result, SottoError};
@@ -33,6 +34,14 @@ pub struct SearchHit {
     pub session_id: String,
     pub title: String,
     pub snippet: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct RecoverableCapture {
+    pub session_id: String,
+    pub title: String,
+    pub chunk_count: usize,
+    pub duration_ms: u64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -284,6 +293,118 @@ impl Store {
 
     pub fn live_dir(&self, session_id: &str) -> PathBuf {
         self.data_dir.join("live").join(session_id)
+    }
+
+    fn live_root(&self) -> PathBuf {
+        self.data_dir.join("live")
+    }
+
+    fn quarantine_root(&self) -> PathBuf {
+        self.data_dir.join("live-quarantine")
+    }
+
+    fn quarantine_unknown_live(&self) -> Result<()> {
+        let live = self.live_root();
+        if !live.is_dir() {
+            return Ok(());
+        }
+        for entry in fs::read_dir(&live)? {
+            let path = entry?.path();
+            if !path.is_dir() {
+                continue;
+            }
+            let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
+                continue;
+            };
+            if self.get_session(name).is_ok() {
+                continue;
+            }
+            let dest_root = self.quarantine_root();
+            fs::create_dir_all(&dest_root)?;
+            let mut dest = dest_root.join(name);
+            if dest.exists() {
+                dest = dest_root.join(format!("{name}-{}", Uuid::new_v4()));
+            }
+            fs::rename(&path, dest)?;
+        }
+        Ok(())
+    }
+
+    fn recovery_eligible(&self, session: &Session) -> bool {
+        session.consent_state == "acknowledged"
+            && (session.status == "recording" || session.status == "paused")
+    }
+
+    /// Consented incomplete live directories for their exact session only.
+    pub fn list_recoverable(&self) -> Result<Vec<RecoverableCapture>> {
+        self.quarantine_unknown_live()?;
+        let live = self.live_root();
+        if !live.is_dir() {
+            return Ok(Vec::new());
+        }
+        let mut out = Vec::new();
+        for entry in fs::read_dir(&live)? {
+            let path = entry?.path();
+            if !path.is_dir() {
+                continue;
+            }
+            let Some(id) = path.file_name().and_then(|n| n.to_str()) else {
+                continue;
+            };
+            let Ok(session) = self.get_session(id) else {
+                continue;
+            };
+            if !self.recovery_eligible(&session) {
+                continue;
+            }
+            let Ok((chunk_count, duration_ms)) = capture::inspect_live(&path) else {
+                continue;
+            };
+            out.push(RecoverableCapture {
+                session_id: session.id,
+                title: session.title,
+                chunk_count,
+                duration_ms,
+            });
+        }
+        out.sort_by(|a, b| a.session_id.cmp(&b.session_id));
+        Ok(out)
+    }
+
+    /// Encrypt recovered chunks, then delete the live directory. Does not transcribe.
+    pub fn recover_live(&self, session_id: &str) -> Result<Session> {
+        let session = self.get_session(session_id)?;
+        if !self.recovery_eligible(&session) {
+            return Err(SottoError::app(
+                "RECOVERY_NOT_ELIGIBLE",
+                "That session is not waiting to be recovered.",
+                true,
+                "Only a consented recording that never finished can be recovered.",
+            ));
+        }
+        let dir = self.live_dir(session_id);
+        let _ = capture::inspect_live(&dir)?;
+        let captured = ChunkedRecorder::recover(&dir)?;
+        let secs = i64::try_from((captured.duration_ms + 500) / 1000).unwrap_or(0);
+        let session = self.finalize_capture(session_id, &captured.wav, secs)?;
+        let _ = fs::remove_dir_all(&dir);
+        Ok(session)
+    }
+
+    /// Delete only this session's live chunks. Does not encrypt and does not transcribe.
+    pub fn discard_live(&self, session_id: &str) -> Result<Session> {
+        let session = self.get_session(session_id)?;
+        let dir = self.live_dir(session_id);
+        if dir.exists() {
+            fs::remove_dir_all(&dir)?;
+        }
+        if self.recovery_eligible(&session) {
+            self.conn.execute(
+                "UPDATE sessions SET status = 'discarded' WHERE id = ?1",
+                params![session_id],
+            )?;
+        }
+        self.get_session(session_id)
     }
 
     pub fn finalize_with_wav(&self, session_id: &str, wav: &[u8]) -> Result<Session> {
@@ -830,6 +951,7 @@ impl Store {
         for rel in paths {
             let _ = fs::remove_file(self.data_dir.join(rel));
         }
+        let _ = fs::remove_dir_all(self.live_dir(session_id));
         self.conn.execute(
             "DELETE FROM transcript_fts WHERE session_id = ?1",
             params![session_id],

@@ -1235,3 +1235,122 @@ fn ct_parakeet_download() {
     assert_eq!(report.engine_id, "fixture-replay");
     assert_eq!(report.network_calls, 0);
 }
+
+fn plant_crashed_chunks(store: &Store, session_id: &str, samples: usize) {
+    let live = store.live_dir(session_id);
+    let mut rec = ChunkedRecorder::start(&live, CaptureConfig::default()).unwrap();
+    rec.write_pcm(&vec![0i16; samples]).unwrap();
+    rec.flush().unwrap();
+    drop(rec);
+}
+
+/// CT-recovery-discovery
+/// Flushed consented chunks map to their exact session. Unknown live dirs
+/// are quarantined. Empty dirs, pending consent, and other sessions are not
+/// attached. Discovery does not resume recording or transcribe.
+#[test]
+fn ct_recovery_discovery() {
+    let dir = tempdir().unwrap();
+    let store = Store::open(dir.path()).unwrap();
+    let crashed = store
+        .create_session(Some("Crashed take".into()), "mic")
+        .unwrap();
+    store.acknowledge_consent(&crashed.id).unwrap();
+    store.start_recording(&crashed.id).unwrap();
+    plant_crashed_chunks(&store, &crashed.id, 16_000);
+
+    let other = store
+        .create_session(Some("Other take".into()), "mic")
+        .unwrap();
+    store.acknowledge_consent(&other.id).unwrap();
+    store.start_recording(&other.id).unwrap();
+
+    let pending = store
+        .create_session(Some("No consent".into()), "mic")
+        .unwrap();
+    plant_crashed_chunks(&store, &pending.id, 16_000);
+
+    let ghost = dir.path().join("live").join("GHOST-SESSION");
+    fs::create_dir_all(&ghost).unwrap();
+    fs::write(ghost.join("chunk-0000.pcm"), [0u8; 32]).unwrap();
+
+    let found = store.list_recoverable().expect("discover");
+    assert_eq!(found.len(), 1, "only the consented crashed session");
+    assert_eq!(found[0].session_id, crashed.id);
+    assert_eq!(found[0].title, "Crashed take");
+    assert!(found[0].chunk_count >= 1);
+    assert!(
+        found[0].duration_ms >= 900,
+        "recoverable duration {}",
+        found[0].duration_ms
+    );
+    assert_eq!(store.get_session(&crashed.id).unwrap().status, "recording");
+    assert!(!ghost.exists(), "unknown live dir must be quarantined");
+    assert!(
+        dir.path()
+            .join("live-quarantine")
+            .join("GHOST-SESSION")
+            .is_dir(),
+        "ghost must land in quarantine, not another session"
+    );
+    let detail = store.get_detail(&crashed.id).unwrap();
+    assert!(detail.transcript.is_none());
+}
+
+/// CT-recovery-encrypted
+/// Recover encrypts through the normal path, then removes chunks. Discard
+/// is a separate action and does not encrypt. Recovery does not transcribe
+/// and does not pick fixture or cloud STT.
+#[test]
+fn ct_recovery_encrypted() {
+    let dir = tempdir().unwrap();
+    let store = Store::open(dir.path()).unwrap();
+    let crashed = store
+        .create_session(Some("Recover me".into()), "mic")
+        .unwrap();
+    store.acknowledge_consent(&crashed.id).unwrap();
+    store.start_recording(&crashed.id).unwrap();
+    plant_crashed_chunks(&store, &crashed.id, 16_000);
+
+    let wrong = store
+        .create_session(Some("No chunks".into()), "mic")
+        .unwrap();
+    store.acknowledge_consent(&wrong.id).unwrap();
+    store.start_recording(&wrong.id).unwrap();
+    let attach = store.recover_live(&wrong.id).unwrap_err();
+    assert_eq!(attach.code(), "CAPTURE_NO_CHUNKS");
+
+    let recovered = store.recover_live(&crashed.id).expect("recover");
+    assert_eq!(recovered.status, "recorded");
+    assert!(recovered.model_id.is_none());
+    assert!(store.audio_is_ciphertext(&crashed.id).unwrap());
+    let detail = store.get_detail(&crashed.id).unwrap();
+    let packed = fs::read(dir.path().join(detail.audio_path.as_ref().unwrap())).unwrap();
+    assert!(!is_wav(&packed), "finalized audio must not look like a WAV");
+    assert!(
+        !store.live_dir(&crashed.id).exists(),
+        "chunks must be gone after encrypted persist"
+    );
+    assert!(store.list_recoverable().unwrap().is_empty());
+    assert!(detail.transcript.is_none());
+    let err = store.transcribe(&crashed.id, None).unwrap_err();
+    assert_eq!(err.code(), "ENGINE_SETUP_REQUIRED");
+
+    let dump = store
+        .create_session(Some("Discard me".into()), "mic")
+        .unwrap();
+    store.acknowledge_consent(&dump.id).unwrap();
+    store.start_recording(&dump.id).unwrap();
+    plant_crashed_chunks(&store, &dump.id, 8_000);
+    let discarded = store.discard_live(&dump.id).expect("discard");
+    assert_eq!(discarded.status, "discarded");
+    assert!(!store.live_dir(&dump.id).exists());
+    assert!(store.list_recoverable().unwrap().is_empty());
+    let dump_detail = store.get_detail(&dump.id).unwrap();
+    assert!(!dump_detail.audio_encrypted);
+    assert!(dump_detail.transcript.is_none());
+
+    let report = demo_pipeline(dir.path()).expect("demo");
+    assert_eq!(report.engine_id, "fixture-replay");
+    assert_eq!(report.network_calls, 0);
+}

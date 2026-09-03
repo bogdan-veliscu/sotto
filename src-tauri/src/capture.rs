@@ -416,18 +416,46 @@ impl ChunkedRecorder {
     pub fn recover(dir: &Path) -> Result<CaptureResult> {
         let samples = read_chunks(dir)?;
         if samples.is_empty() {
-            return Err(SottoError::app(
-                "CAPTURE_NO_CHUNKS",
-                "no chunk-*.pcm files to recover",
-                true,
-                "Nothing was flushed before the crash.",
-            ));
+            return Err(no_chunks());
         }
         let sample_rate = read_sample_rate(dir);
         let wav = wav_from_samples(&samples, sample_rate);
         let duration_ms = duration_ms_for(samples.len(), sample_rate);
         Ok(CaptureResult { wav, duration_ms })
     }
+}
+
+fn no_chunks() -> SottoError {
+    SottoError::app(
+        "CAPTURE_NO_CHUNKS",
+        "no chunk-*.pcm files to recover",
+        true,
+        "Nothing was flushed before the crash.",
+    )
+}
+
+/// Count flushed PCM chunks and estimate duration without building a WAV.
+pub fn inspect_live(dir: &Path) -> Result<(usize, u64)> {
+    if !dir.is_dir() {
+        return Err(no_chunks());
+    }
+    let mut files: Vec<PathBuf> = Vec::new();
+    for entry in fs::read_dir(dir)? {
+        let path = entry?.path();
+        if is_chunk_file(&path) {
+            files.push(path);
+        }
+    }
+    if files.is_empty() {
+        return Err(no_chunks());
+    }
+    let sample_rate = read_sample_rate(dir);
+    let mut bytes = 0u64;
+    for path in &files {
+        bytes += fs::metadata(path)?.len();
+    }
+    let sample_count = (bytes / 2) as usize;
+    Ok((files.len(), duration_ms_for(sample_count, sample_rate)))
 }
 
 impl Drop for ChunkedRecorder {
