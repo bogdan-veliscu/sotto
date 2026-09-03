@@ -8,7 +8,7 @@ Sotto is a **local-first meeting recorder**. Headline: a meeting recorded on thi
 
 PR 0 (shipped): fixture capture → AES-GCM → fixture-replay → FTS5 → delete-all.
 
-**Current DAG wave: 41–42 (`model-onboarding`).** Soft-launch bar: `docs/SOFT_LAUNCH.md`. Honest live-ready, local Whisper/Parakeet import, live Stop never uses fixture-replay. See `docs/PR_PLAN.md`.
+**Current DAG wave: 47–48 (`docs-readme-closeout`).** Soft-launch bar: `docs/SOFT_LAUNCH.md`. Public docs must match live capture, local models, recovery, and evidence classes. See `docs/PR_PLAN.md`.
 
 ## Commands
 

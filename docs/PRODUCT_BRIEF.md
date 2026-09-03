@@ -38,8 +38,8 @@ Local-first. Explicit consent UX. Minimal setup. Reliable transcription over cle
 
 ## v1 success criteria
 
-- User can record system audio and mic on macOS (live capture is the next wave; fixture path is green today).
-- User can transcribe locally.
+- User can record system audio and mic on macOS after granting Microphone and, for system/mixed, Screen Recording. `make demo` remains fixture-replay.
+- User can transcribe with a runnable local model (Apple on-device Speech, imported Whisper file, or Parakeet TDT directory).
 - User can search past meetings.
 - User can export transcript and summary.
 - App feels fast, stable, and private.

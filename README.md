@@ -4,7 +4,7 @@ Local-first meeting recorder for macOS. **No bot joins the call.** Audio stays o
 
 Sotto is built in public. It is a tool I need for sensitive conversations, and the repo is public so others can run it, inspect the privacy invariants, and contribute.
 
-> Wave 1 records a **golden fixture**, encrypts it, transcribes it offline, and searches it. Core Audio taps (live system audio) and Parakeet / Whisper weights are specified and catalogued, not downloaded.
+Trusted-circle soft launch: `docs/SOFT_LAUNCH.md`. `make demo` is the golden **fixture-replay** path. Live capture and a real **local model** are separate evidence.
 
 ## Why this name
 
@@ -12,18 +12,32 @@ Sotto is built in public. It is a tool I need for sensitive conversations, and t
 
 ## What works today
 
-| Capability | Status |
-|---|---|
-| Local SQLite store + FTS5 search | **Done** |
-| Consent gate before record | **Done** |
-| AES-GCM audio at rest (not a plaintext WAV) | **Done** |
-| Engine catalog; never silent-cloud fallback | **Done** |
-| Fixture-replay transcription (offline demo) | **Done** |
-| Quiet desktop UI (Tauri 2 + SvelteKit) | **Done** |
-| Live system-audio / mic capture | Next wave |
-| Parakeet TDT 0.6B v3 / Whisper Large-v3 Turbo | Catalogued, not wired |
-| SQLCipher for the metadata DB | Later |
-| Cloud STT | Off. Never on unless you set `cloud_mode=on` |
+| Capability | Status | Evidence |
+|---|---|---|
+| Local SQLite store + FTS5 search | **Done** | linux core (`make demo`) |
+| Consent gate before record | **Done** | linux core + desk |
+| AES-GCM audio at rest (not a plaintext WAV) | **Done** | linux core |
+| Engine catalog; never silent-cloud fallback | **Done** | linux core |
+| Fixture-replay transcription | **Done** — `make demo` only | linux core |
+| Quiet desktop UI (Tauri 2 + SvelteKit) | **Done** | macos desktop |
+| Live mic / system / mixed capture | **Done** on macOS | hardware/tcc (human) |
+| Apple on-device Speech, Whisper file, Parakeet TDT | **Done** when a runnable local model is present | real local-model |
+| Crash recover / discard leftover chunks | **Done** | linux core + desk |
+| SQLCipher for the metadata DB | Later | — |
+| Cloud STT | Off. Never on unless you set `cloud_mode=on` | — |
+
+Linux GitHub Actions is **linux core** only (`cargo --no-default-features`). It does not prove taps, Screen Recording, or a real decoder.
+
+## First user on this Mac
+
+1. `make build` or `make dev`. Unsigned `.app`: Gatekeeper → right-click Open.
+2. Grant Microphone. Grant **Screen Recording** only if you pick system or mixed.
+3. Import a Whisper ggml file or a Parakeet TDT directory, or use Apple on-device Speech. The desk shows `ready` only when that engine can decode. No auto-download.
+4. Acknowledge consent, record, Stop. Live Stop does not use `fixture-replay`.
+5. Search the transcript and export markdown.
+6. If the app dies mid-record, Recover (encrypt) or Discard. No silent wipe of consented chunks.
+
+`make demo` never downloads a model and always stays on fixture-replay with `network_calls: 0`.
 
 ## Quick start
 
@@ -36,11 +50,11 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 git clone https://github.com/bogdan-veliscu/sotto.git
 cd sotto
 npm install
-make demo          # privacy invariants, JSON on stdout, no API keys
+make demo          # fixture-replay privacy invariants, JSON on stdout, no API keys
 make dev           # desktop app
 ```
 
-`make demo` must succeed with the network unplugged after crates are cached. It never downloads a model.
+`make demo` must succeed with the network unplugged after crates are cached.
 
 ### Make targets
 
@@ -49,11 +63,13 @@ make dev           # desktop app
 | `make graph` | Validate domain graph + SHA-256 fixture lock |
 | `make contract` | Graph + core Rust tests + Python catalog tests |
 | `make demo` | Offline fixture → encrypt → transcribe → search → delete-all |
-| `make ci` | Same gates as GitHub Actions (no GTK/WebKit) |
+| `make ci` | Same gates as GitHub Actions (linux core, no GTK/WebKit) |
+| `make cert-desktop` | Record macos desktop evidence (compile, UI check, unsigned `.app`) |
 | `make dev` | `npm run tauri dev` |
+| `make build` | Unsigned macOS `.app` |
 | `make test` | verify + contract |
 
-Roadmap: `docs/PR_PLAN.md` (six PRs after this commit to finish v1).
+Roadmap and remaining human hardware pass: `docs/PR_PLAN.md`, `docs/SOFT_LAUNCH.md`.
 
 ## How we work (Kiro)
 
@@ -61,7 +77,7 @@ Same method as the Ready / Spec / Ship labs: **Requirements-First specs, a domai
 
 1. Invariants live in `harness/graph/domain.graph.json`.
 2. Waves live in `harness/graph/task-dag.yaml`.
-3. Specs live in `.kiro/specs/{session-store,capture-consent,search-notes}/`.
+3. Specs live in `.kiro/specs/<name>/`.
 4. Golden files in `fixtures/` are content-addressed. A PreToolUse hook blocks edits unless `SOTTO_ALLOW_FIXTURE_MUTATION=1`.
 5. Kiro is the engineering environment, not a runtime. You do not install Kiro to run Sotto.
 
@@ -84,18 +100,17 @@ src/                    SvelteKit desk UI
 src-tauri/              Rust store, crypto, engines, IPC, sotto-demo
 fixtures/               Golden models catalog + CONSULT-001
 harness/graph/          Domain graph, DAG, fixture lock
+harness/evidence/       Content-free macos desktop / hardware/tcc manifests
 tests/contract/         Python invariant tests
 docs/                   Product spec pack
 .kiro/                  Steering, specs, hooks, agent `scribe`
 ```
 
-See `docs/PR_PLAN.md` for the six PRs that complete v1. Wave 1 is the fixture pipeline only.
-
 ## Privacy
 
 - No telemetry unless you turn it on (default **off**).
 - No network in the default demo path (`network_calls: 0`).
-- Audio is AES-256-GCM. The master key lives next to the database in the app data directory for wave 1 (Keychain comes later). Keep them together.
+- Audio is AES-256-GCM. Production desktop uses macOS Keychain; linux core / `make demo` uses an isolated file keystore.
 - You are responsible for telling other people in the room when the law requires consent to record.
 
 See `SECURITY.md` and `docs/PRD.md`.

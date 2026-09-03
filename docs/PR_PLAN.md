@@ -58,15 +58,26 @@ The implementation has the core pieces, but founder daily use is not yet a certi
 
 | PR | Branch | Spec | What ships | Merge gate |
 |----|--------|------|------------|------------|
-| **K** | `fix/judge-reliability` | `judge-reliability` | Deterministic macOS judge keystore so demo/contracts/CI complete without changing production Keychain or the fixture boundary. | `CT-keychain-test-deterministic`, `CT-judge-completes`, `make ci` |
-| **L** | `feat/model-onboarding` | `model-onboarding` | Honest runnable-engine state, local Whisper file / Parakeet TDT directory import, and an explicit non-fixture engine for live transcription. Fixture remains demo-only. | `CT-model-runnable-ready`, `CT-model-import-local`, `CT-live-engine-runnable`, `make ci` |
-| **M** | `feat/crash-recovery` | `crash-recovery` | Discover incomplete consented captures and recover them through encrypted finalization before cleanup. | `CT-recovery-discovery`, `CT-recovery-encrypted`, `make ci` |
-| **N** | `chore/macos-founder-certification` | `macos-founder-certification` | Separate desktop-build evidence from human hardware/TCC/recovery/real-model evidence. | `CT-macos-desktop-gate`, `CT-macos-hardware-e2e`, `make ci` |
+| **K** | `fix/judge-reliability` | `judge-reliability` | Deterministic macOS judge keystore so demo/contracts/CI complete without changing production Keychain or the fixture boundary. **Shipped** (`#18`). | `CT-keychain-test-deterministic`, `CT-judge-completes`, `make ci` |
+| **L** | `feat/model-onboarding` | `model-onboarding` | Honest runnable-engine state, local Whisper file / Parakeet TDT directory import, and an explicit non-fixture engine for live transcription. Fixture remains demo-only. **Shipped** (`#19`). | `CT-model-runnable-ready`, `CT-model-import-local`, `CT-live-engine-runnable`, `make ci` |
+| **M** | `feat/crash-recovery` | `crash-recovery` | Discover incomplete consented captures and recover them through encrypted finalization before cleanup. **Shipped** (`#20`). | `CT-recovery-discovery`, `CT-recovery-encrypted`, `make ci` |
+| **N** | `chore/macos-founder-certification` | `macos-founder-certification` | Separate desktop-build evidence from human hardware/TCC/recovery/real-model evidence. **Shipped** (`#21`). Desktop pass retained; hardware/tcc still not-run. | `CT-macos-desktop-gate`, `CT-macos-hardware-e2e`, `make ci` |
 | **O** | `docs/readme-closeout` | `docs-readme-closeout` | Public docs describe post-J behavior, prerequisites, and verification limits without Wave 1 or Linux/macOS evidence drift. | `CT-docs-current`, `CT-coverage-honesty`, `make ci` |
 
-**PRs remaining: 5. Features remaining: 5. New specs: 5. DAG waves: 39–48.**
+**PRs remaining: 1 (O).** Features remaining for this bar: docs closeout plus a human hardware/tcc pass. DAG waves 47–48.
 
-Order: **K → L → M → N → O**. Restore the required judge first, make live recordings transcribable second, recover interrupted recordings third, certify the actual Mac path fourth, then publish only the claims supported by that evidence.
+## Evidence classes
+
+Do not collapse these into “CI green.”
+
+| Class | Command / home | Proves |
+|---|---|---|
+| linux core | GitHub Ubuntu `make ci`, `cargo --no-default-features`, `make demo` | Portable contracts, fixture-replay, no GTK |
+| macos desktop | `make cert-desktop`, `cargo check --features desktop --bins`, `npm run check`, unsigned `.app` | Desk compiles and bundles on a Mac |
+| hardware/tcc | Human probe + `harness/evidence/macos-founder-certification.json` | Mic, Screen Recording, mixed, pause, recovery |
+| real local-model | Same manifest `real_local_stt` | One on-device transcript, no fixture-replay |
+
+Order: **K → L → M → N → O**. Judge first, live transcription second, crash recovery third, Mac evidence fourth, honest docs last.
 
 Candidate decisions from the completeness review:
 
