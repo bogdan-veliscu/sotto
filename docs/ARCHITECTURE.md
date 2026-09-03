@@ -18,7 +18,7 @@ Why: Tauri stays light. Svelte is small. Rust is good for file safety. SQLite + 
 
 ## macOS audio capture
 
-Prefer Apple's supported system-audio path (Core Audio taps) on modern macOS, with the usage description in `Info.plist`. Wave 1 does not call the tap yet; `NSAudioCaptureUsageDescription` is already in the bundle plist.
+Prefer Apple's supported system-audio path (ScreenCaptureKit) on modern macOS, with the usage description in `Info.plist`. Live system and mixed capture require Screen Recording. Linux core CI does not exercise the tap.
 
 ## Model layer
 
@@ -27,7 +27,7 @@ One interface. UI sees label, languages, speed, accuracy, hardware hints, instal
 ## Data flow
 
 1. User starts recording (consent first).
-2. Capture writes local audio (fixture WAV in wave 1).
+2. Capture writes local PCM chunks (mic, system, or mixed on macOS). `make demo` uses the golden fixture WAV.
 3. Stop finalizes and encrypts.
 4. Worker transcribes.
 5. Segments + summary persist.

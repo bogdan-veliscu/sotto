@@ -1,7 +1,6 @@
 # Pair turn
 
-- **slice:** N (`chore/macos-founder-certification`)
+- **slice:** O (`docs/readme-closeout`)
 - **driver:** Cursor
-- **navigator:** Codex after the N PR is open — `SHIP` / `FIX` only
-- **after ship N:** Codex/Cursor drives **O** (docs-readme-closeout)
-- **keyboard:** Cursor, writing N
+- **navigator:** Codex after the O PR is open — `SHIP` / `FIX` only
+- **keyboard:** Cursor, writing O

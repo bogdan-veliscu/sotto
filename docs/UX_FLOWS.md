@@ -2,7 +2,7 @@
 
 1. **First launch** — privacy promise, permissions later, model honesty, enter the desk.
 2. **Start recording** — consent card, LED, elapsed, stop.
-3. **Stop** — encrypt, transcribe, show progress (wave 1 is fast because fixture).
+3. **Stop** — encrypt live chunks. Transcribe with a runnable local model, or leave the session `recorded` if setup is incomplete. `make demo` is fixture-replay.
 4. **Review** — timestamps, summary, action items, editable title.
 5. **Search** — top bar, local, click to open.
 6. **Models** — installed vs catalogued, speed/accuracy, no silent cloud.

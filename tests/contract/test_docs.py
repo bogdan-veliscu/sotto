@@ -1,8 +1,6 @@
-"""Future documentation-truth contracts for waves 47–48.
+"""Documentation-truth contracts for waves 47–48.
 
-The assertions live here now so the domain graph names an honest enforcement
-home. They are skipped until docs-readme-closeout is implemented; wave 47 owns
-removing the skips. These tests perform filesystem string checks only.
+Filesystem string checks only. No network, model import, decoder, or desktop launch.
 """
 
 from pathlib import Path
@@ -45,7 +43,6 @@ def _combined(paths: tuple[Path, ...]) -> str:
     return "\n".join(path.read_text().lower() for path in paths)
 
 
-@pytest.mark.skip(reason="wave 47 docs-readme-closeout is pending")
 def test_docs_current():
     """CT-docs-current: shipped work is not described as future work."""
     body = _combined(CURRENT_DOCS)
@@ -55,7 +52,6 @@ def test_docs_current():
     assert "screen recording" in body and "local model" in body
 
 
-@pytest.mark.skip(reason="wave 48 evidence-scope docs are pending")
 def test_coverage_honesty():
     """CT-coverage-honesty: each evidence class stays explicit."""
     body = _combined((ROOT / "README.md", ROOT / "docs/PR_PLAN.md"))
