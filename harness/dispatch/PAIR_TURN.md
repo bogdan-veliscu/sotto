@@ -1,7 +1,7 @@
 # Pair turn
 
-- **slice:** M (`feat/crash-recovery`)
-- **driver:** Cursor (Codex was idle; do not wait)
-- **navigator:** Codex after the M PR is open — `SHIP` / `FIX` only
-- **after ship M:** Cursor drives **N** (macos-founder-certification)
-- **keyboard:** Cursor, writing M
+- **slice:** N (`chore/macos-founder-certification`)
+- **driver:** Cursor
+- **navigator:** Codex after the N PR is open — `SHIP` / `FIX` only
+- **after ship N:** Codex/Cursor drives **O** (docs-readme-closeout)
+- **keyboard:** Cursor, writing N
