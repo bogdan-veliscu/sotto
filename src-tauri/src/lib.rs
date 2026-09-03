@@ -16,6 +16,7 @@ pub mod presence;
 pub mod search;
 mod store;
 pub mod stt;
+mod stt_apple;
 #[cfg(feature = "parakeet")]
 mod stt_parakeet;
 pub use capture::{mix_pcm, source_permission_hint, system_tap_status, CaptureSource};
@@ -30,6 +31,8 @@ use serde::Serialize;
 
 #[cfg(feature = "desktop")]
 mod commands;
+#[cfg(feature = "desktop")]
+mod fn_tap;
 
 #[derive(Debug, Serialize)]
 pub struct DemoReport {
@@ -57,7 +60,10 @@ pub fn demo_pipeline(data_dir: &Path) -> error::Result<DemoReport> {
     store.start_recording(&session.id)?;
     let wav = include_bytes!("../../fixtures/sessions/CONSULT-001.wav");
     store.finalize_with_wav(&session.id, wav)?;
-    let detail = store.transcribe(&session.id, None)?;
+    let detail = store.transcribe(
+        &session.id,
+        Some(crate::engines::FIXTURE_ENGINE_ID.to_string()),
+    )?;
     let hits = store.search("privileged", 10)?;
     let audio_is_ciphertext = store.audio_is_ciphertext(&session.id)?;
     let engine_id = detail.session.model_id.clone().unwrap_or_default();
@@ -134,6 +140,8 @@ pub fn run() {
             commands::privacy_settings,
             commands::sessions_delete,
             commands::model_install_file,
+            commands::model_import_local,
+            commands::model_download_parakeet,
             commands::model_delete,
             commands::data_delete_all,
             commands::key_report,
@@ -141,6 +149,7 @@ pub fn run() {
             commands::presence_login_get,
             commands::presence_login_set,
             commands::presence_hud,
+            commands::hud_tick,
             commands::hotkey_get,
             commands::hotkey_set,
             commands::meeting_detect_get,

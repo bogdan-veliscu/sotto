@@ -7,6 +7,9 @@ use crate::error::{Result, SottoError};
 
 pub const WHISPER_ENGINE_ID: &str = "whisper-large-v3-turbo";
 pub const FIXTURE_FALLBACK_ENV: &str = "SOTTO_ALLOW_FIXTURE_FALLBACK";
+/// Magic-only stubs are not live-ready. Real ggml-large-v3-turbo is ~800 MiB.
+pub const WHISPER_MIN_LIVE_BYTES: u64 = 1_048_576;
+const GOLDEN_WAV: &[u8] = include_bytes!("../../fixtures/sessions/CONSULT-001.wav");
 
 /// Work for on-device inference with no Store attached.
 ///
@@ -53,9 +56,14 @@ pub fn fixture_fallback_allowed() -> bool {
     std::env::var(FIXTURE_FALLBACK_ENV).ok().as_deref() == Some("1")
 }
 
+/// True when `wav` is the locked CONSULT-001 fixture capture.
+pub fn is_golden_wav(wav: &[u8]) -> bool {
+    wav == GOLDEN_WAV
+}
+
 /// True if the given path string points at a remote resource. Weights are
 /// local files only; a URL-shaped path is always rejected.
-fn looks_like_url(path: &Path) -> bool {
+pub(crate) fn looks_like_url(path: &Path) -> bool {
     let s = path.to_string_lossy().to_ascii_lowercase();
     s.starts_with("http://") || s.starts_with("https://")
 }
@@ -77,6 +85,24 @@ fn file_is_valid_ggml(path: &Path) -> Result<bool> {
     let mut magic = [0u8; 4];
     let n = file.read(&mut magic)?;
     Ok(is_valid_ggml(&magic[..n]))
+}
+
+/// True when `path` is a local ggml/gguf Whisper file. Never fetches a URL.
+pub fn whisper_layout_ok(path: &Path) -> bool {
+    if looks_like_url(path) || !path.is_file() {
+        return false;
+    }
+    file_is_valid_ggml(path).unwrap_or(false)
+}
+
+/// Live-ready Whisper needs a valid magic **and** more than a truncated stub.
+pub fn whisper_live_layout_ok(path: &Path) -> bool {
+    if !whisper_layout_ok(path) {
+        return false;
+    }
+    std::fs::metadata(path)
+        .map(|meta| meta.len() >= WHISPER_MIN_LIVE_BYTES)
+        .unwrap_or(false)
 }
 
 fn not_installed() -> SottoError {
@@ -109,8 +135,7 @@ fn model_invalid() -> SottoError {
 ///   `resolve_engine`; this is a defensive guard).
 pub fn transcribe_local(engine_id: &str, wav: &[u8], cache_dir: &Path) -> Result<TranscriptResult> {
     if engine_id == FIXTURE_ENGINE_ID {
-        const GOLDEN: &[u8] = include_bytes!("../../fixtures/sessions/CONSULT-001.wav");
-        if wav != GOLDEN {
+        if !is_golden_wav(wav) {
             return Err(SottoError::app(
                 "FIXTURE_AUDIO_MISMATCH",
                 "fixture-replay only transcribes the golden CONSULT-001 capture.",
@@ -127,6 +152,10 @@ pub fn transcribe_local(engine_id: &str, wav: &[u8], cache_dir: &Path) -> Result
 
     if engine_id == crate::install::PARAKEET_ENGINE_ID {
         return transcribe_parakeet(wav, cache_dir);
+    }
+
+    if engine_id == crate::stt_apple::APPLE_SPEECH_ENGINE_ID {
+        return crate::stt_apple::transcribe(wav, cache_dir);
     }
 
     // Non-fixture, non-whisper: consult the catalog. Cloud/api engines are
@@ -170,6 +199,10 @@ fn transcribe_whisper(wav: &[u8], cache_dir: &Path) -> Result<TranscriptResult> 
         return Err(model_invalid());
     }
 
+    if !whisper_live_layout_ok(&weights) {
+        return Err(model_invalid());
+    }
+
     // Valid local weights present.
     run_whisper_inference(WHISPER_ENGINE_ID, wav, &weights)
 }
@@ -179,7 +212,7 @@ fn parakeet_not_installed() -> SottoError {
         "ENGINE_NOT_INSTALLED",
         "Parakeet TDT weights are not installed on this Mac.",
         true,
-        "Place encoder-model.onnx, decoder_joint-model.onnx, and vocab.txt in the local TDT folder. Sotto will not download them or use the cloud.",
+        "Download the pinned TDT pack from Models, or import a local folder. Sotto will not use the cloud.",
     )
 }
 

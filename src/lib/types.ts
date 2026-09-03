@@ -47,6 +47,7 @@ export type Engine = {
   estimated_speed: string;
   estimated_accuracy: string;
   install_state: string;
+  live_ready: boolean;
   disk_size_mb: number;
   notes: string;
   supported_languages: string[];

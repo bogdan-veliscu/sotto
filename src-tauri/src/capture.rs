@@ -1,5 +1,6 @@
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
@@ -206,6 +207,15 @@ fn duration_ms_for(sample_count: usize, sample_rate: u32) -> u64 {
     (sample_count as u64 * 1000) / u64::from(sample_rate)
 }
 
+fn pcm_peak_pct(pcm: &[i16]) -> u32 {
+    let max = pcm
+        .iter()
+        .map(|s| s.unsigned_abs() as u32)
+        .max()
+        .unwrap_or(0);
+    ((max * 100) / i16::MAX as u32).min(100)
+}
+
 /// Generate a mono 16 kHz sine tone WAV for the requested duration.
 pub fn record_sine(duration_ms: u64, sample_rate: u32) -> Result<CaptureResult> {
     if duration_ms == 0 || sample_rate == 0 {
@@ -242,6 +252,7 @@ pub struct ChunkedRecorder {
     buffer: Vec<i16>,
     next_chunk: u32,
     paused: bool,
+    peak: AtomicU32,
 }
 
 fn chunk_path(dir: &Path, index: u32) -> PathBuf {
@@ -328,6 +339,7 @@ impl ChunkedRecorder {
             buffer: Vec::new(),
             next_chunk: 0,
             paused: false,
+            peak: AtomicU32::new(0),
         })
     }
 
@@ -335,6 +347,8 @@ impl ChunkedRecorder {
         if self.paused {
             return Ok(());
         }
+        let peak = pcm_peak_pct(pcm_i16);
+        self.peak.fetch_max(peak, Ordering::Relaxed);
         self.buffer.extend_from_slice(pcm_i16);
         while self.buffer.len() >= self.chunk_samples {
             let rest = self.buffer.split_off(self.chunk_samples);
@@ -365,6 +379,13 @@ impl ChunkedRecorder {
     pub fn resume(&mut self) -> Result<()> {
         self.paused = false;
         Ok(())
+    }
+
+    /// Instantaneous input peak 0–100, then decay so a quiet room falls back.
+    pub fn take_level(&self) -> u8 {
+        let v = self.peak.load(Ordering::Relaxed);
+        self.peak.store(v.saturating_mul(5) / 8, Ordering::Relaxed);
+        v.min(100) as u8
     }
 
     /// Flush the tail buffer as its own chunk file.
@@ -454,6 +475,10 @@ impl LiveSession {
             let _ = worker.join();
         }
         lock_rec(&self.rec)?.finish()
+    }
+
+    pub fn level(&self) -> u8 {
+        lock_rec(&self.rec).map(|rec| rec.take_level()).unwrap_or(0)
     }
 }
 

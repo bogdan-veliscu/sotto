@@ -25,3 +25,5 @@ def test_planned_models_are_not_installed():
     by_id = {e["id"]: e for e in data["engines"]}
     assert by_id["parakeet-tdt-0.6b-v3"]["install_state"] == "not-installed"
     assert by_id["whisper-large-v3-turbo"]["install_state"] == "not-installed"
+    assert by_id["apple-speech-ondevice"]["mode"] == "local"
+    assert by_id["apple-speech-ondevice"]["install_state"] == "not-installed"

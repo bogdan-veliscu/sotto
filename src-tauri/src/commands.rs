@@ -10,7 +10,7 @@ use crate::engines::Engine;
 use crate::error::{ErrorBody, SottoError};
 use crate::hotkey::{self, HotkeyView};
 use crate::meeting::{self, DetectedMeeting};
-use crate::presence::{hud_from_status, login_item_backend, HudView};
+use crate::presence::{hud_from_status, hud_view, login_item_backend, HudView};
 use crate::store::{SearchHit, Session, SessionDetail, Store};
 
 pub struct AppState {
@@ -23,16 +23,34 @@ fn map_err(err: crate::error::SottoError) -> ErrorBody {
 }
 
 fn push_hud(app: &AppHandle, status: &str, elapsed_ms: u64) {
-    let view = hud_from_status(status, elapsed_ms);
+    push_hud_view(app, hud_from_status(status, elapsed_ms));
+}
+
+fn push_hud_session(app: &AppHandle, session: &crate::store::Session, level: u8, elapsed_ms: u64) {
+    push_hud_view(
+        app,
+        hud_view(
+            &session.status,
+            elapsed_ms,
+            &session.source,
+            &session.title,
+            &session.id,
+            level,
+        ),
+    );
+}
+
+fn push_hud_view(app: &AppHandle, view: HudView) {
     let _ = app.emit("sotto://hud", &view);
     if let Some(w) = app.get_webview_window("hud") {
         if view.led_on || view.paused {
             if let Ok(Some(monitor)) = w.primary_monitor() {
                 let size = monitor.size();
                 let scale = monitor.scale_factor();
-                let width = 240.0 * scale;
+                let width = 372.0 * scale;
                 let x = (f64::from(size.width) - width) / 2.0;
                 let y = 8.0 * scale;
+                let _ = w.set_size(tauri::LogicalSize::new(372.0, 58.0));
                 let _ = w.set_position(tauri::PhysicalPosition::new(
                     x.round() as i32,
                     y.round() as i32,
@@ -145,7 +163,7 @@ pub fn recorder_begin(
         .start_recording(&session_id)
         .map_err(map_err)?;
     state.live.lock().unwrap().insert(session_id, live);
-    push_hud(&app, &session.status, 0);
+    push_hud_session(&app, &session, 0, 0);
     Ok(session)
 }
 
@@ -164,7 +182,14 @@ pub fn recorder_pause(
         .unwrap()
         .pause_recording(&session_id)
         .map_err(map_err)?;
-    push_hud(&app, &session.status, 0);
+    let level = state
+        .live
+        .lock()
+        .unwrap()
+        .get(&session_id)
+        .map(|live| live.level())
+        .unwrap_or(0);
+    push_hud_session(&app, &session, level, 0);
     Ok(session)
 }
 
@@ -183,7 +208,14 @@ pub fn recorder_resume(
         .unwrap()
         .resume_recording(&session_id)
         .map_err(map_err)?;
-    push_hud(&app, &session.status, 0);
+    let level = state
+        .live
+        .lock()
+        .unwrap()
+        .get(&session_id)
+        .map(|live| live.level())
+        .unwrap_or(0);
+    push_hud_session(&app, &session, level, 0);
     Ok(session)
 }
 
@@ -381,6 +413,45 @@ pub fn model_install_file(
 }
 
 #[tauri::command]
+pub fn model_import_local(
+    state: State<AppState>,
+    engine_id: String,
+    path: String,
+) -> Result<crate::install::InstallResult, ErrorBody> {
+    state
+        .store
+        .lock()
+        .unwrap()
+        .import_model_path(&engine_id, std::path::Path::new(&path))
+        .map_err(map_err)
+}
+
+#[tauri::command]
+pub async fn model_download_parakeet(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    variant: String,
+) -> Result<crate::install::InstallResult, ErrorBody> {
+    let dir = state.store.lock().unwrap().data_dir();
+    let emit_app = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::install::download_parakeet_http(&dir, &variant, &|progress| {
+            let _ = emit_app.emit("sotto://model-download", progress);
+        })
+    })
+    .await
+    .map_err(|_| {
+        map_err(SottoError::app(
+            "DOWNLOAD_FAILED",
+            "Parakeet download worker did not finish.",
+            true,
+            "Try again. The previous TDT folder was not changed.",
+        ))
+    })?
+    .map_err(map_err)
+}
+
+#[tauri::command]
 pub fn model_delete(state: State<AppState>, engine_id: String) -> Result<(), ErrorBody> {
     state
         .store
@@ -489,6 +560,29 @@ pub fn presence_hud(status: String, elapsed_ms: u64) -> HudView {
     hud_from_status(&status, elapsed_ms)
 }
 
+#[tauri::command]
+pub fn hud_tick(state: State<AppState>) -> HudView {
+    let live_map = state.live.lock().unwrap();
+    let Some((id, live)) = live_map.iter().next() else {
+        return hud_from_status("idle", 0);
+    };
+    let level = live.level();
+    let id = id.clone();
+    drop(live_map);
+    let session = match state.store.lock().unwrap().get_session(&id) {
+        Ok(session) => session,
+        Err(_) => return hud_from_status("idle", 0),
+    };
+    hud_view(
+        &session.status,
+        0,
+        &session.source,
+        &session.title,
+        &session.id,
+        level,
+    )
+}
+
 /// Register the stored shortcut. Tests never call this (no OS grab).
 pub(crate) fn apply_hotkey(app: &AppHandle) -> Result<(), ErrorBody> {
     use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
@@ -500,6 +594,10 @@ pub(crate) fn apply_hotkey(app: &AppHandle) -> Result<(), ErrorBody> {
     };
     let gs = app.global_shortcut();
     let _ = gs.unregister_all();
+    crate::fn_tap::arm(app);
+    if hotkey::is_fn_shortcut(&view.shortcut) {
+        return Ok(());
+    }
     gs.on_shortcut(view.shortcut.as_str(), move |app, _shortcut, event| {
         let mode = {
             let app_state = app.state::<AppState>();

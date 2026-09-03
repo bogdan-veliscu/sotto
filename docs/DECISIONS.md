@@ -21,6 +21,12 @@ Ship K → L → M → N → O. L is the product P0. Notarization, Product Hunt,
 
 Lead (Cursor) and Codex (`til:codex`) cooperate: Codex implements one PR at a time; lead steers, reviews, and merges.
 
+## Apple Speech and Parakeet download (2026-09-02)
+
+Founder override: the desk should transcribe with **Apple on-device Speech** (SpeechAnalyzer / SpeechTranscriber, never Apple servers) and offer **user-started Parakeet TDT downloads** (pinned Hugging Face INT8 or FP32) in addition to local folder import.
+
+This does not rewrite REQ-MO-002. Import stays local-files-only. Download is a separate command. `make demo` / contract tests still do not fetch weights. No auto-download, no cloud STT default, no meeting bot.
+
 ## Presence and hotkeys (2026-09-01)
 
 Founder override for personal daily use: login item, configurable global shortcut (start/stop/toggle), notch HUD while recording, and optional local meeting-app detection (Zoom / Teams / Slack). Still no bot, no silent cloud, no calendar sync unless a later override says so.

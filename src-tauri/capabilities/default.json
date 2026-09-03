@@ -5,6 +5,10 @@
   "windows": ["main", "hud"],
     "permissions": [
     "core:default",
+    "core:window:allow-show",
+    "core:window:allow-hide",
+    "core:window:allow-set-size",
+    "core:window:allow-set-position",
     "opener:default",
     "dialog:default",
     "global-shortcut:allow-register",

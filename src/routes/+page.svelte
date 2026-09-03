@@ -19,6 +19,17 @@
   let hits = $state<SearchHit[]>([]);
   let err = $state('');
   let busy = $state('');
+  let download = $state<{
+    active: boolean;
+    failed: boolean;
+    variant: string;
+    file: string;
+    file_index: number;
+    file_count: number;
+    received: number;
+    percent: number;
+    message: string;
+  } | null>(null);
   let liveId = $state<string | null>(null);
   let liveStatus = $state('idle');
   let elapsed = $state(0);
@@ -29,7 +40,6 @@
   let pendingId = $state<string | null>(null);
   let titleDraft = $state('');
   let defaultModel = $state('fixture-replay');
-  let shaDraft = $state<Record<string, string>>({});
   let login = $state({ backend: 'unsupported', requested: false, applied: false });
   let hotkeyShortcut = $state('CommandOrControl+Shift+Space');
   let hotkeyMode = $state('toggle');
@@ -78,6 +88,7 @@
     }
     await persistSource();
     await refresh();
+    await preferLiveDefault();
     if (sessions[0]) await openSession(sessions[0].id);
   }
 
@@ -178,6 +189,81 @@
     await startRecord();
   }
 
+  const ENGINE_ORDER = [
+    'apple-speech-ondevice',
+    'parakeet-tdt-0.6b-v3',
+    'whisper-large-v3-turbo',
+    'fixture-replay',
+  ];
+
+  const listedEngines = $derived(
+    [...engines].sort((a, b) => {
+      const ia = ENGINE_ORDER.indexOf(a.id);
+      const ib = ENGINE_ORDER.indexOf(b.id);
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+    }),
+  );
+
+  function engineTone(engine: Engine): 'ok' | 'wait' | 'demo' {
+    if (engine.id === 'fixture-replay') return 'demo';
+    if (engine.live_ready) return 'ok';
+    return 'wait';
+  }
+
+  function engineStatus(engine: Engine): string {
+    if (engine.id === 'fixture-replay') return 'Demo only';
+    if (engine.live_ready) return 'Ready for live';
+    if (engine.id === 'apple-speech-ondevice') return 'Unavailable';
+    return 'Needs weights';
+  }
+
+  function engineBlurb(engine: Engine): string {
+    switch (engine.id) {
+      case 'apple-speech-ondevice':
+        return engine.live_ready
+          ? 'Transcribes on this Mac. No download. Audio is not sent to Apple servers.'
+          : 'Needs on-device Apple speech on this Mac. Audio is not sent to Apple servers.';
+      case 'parakeet-tdt-0.6b-v3':
+        return engine.live_ready
+          ? 'Local TDT weights are installed.'
+          : 'Download INT8 (~670 MB) or import a folder. Demo never fetches.';
+      case 'whisper-large-v3-turbo':
+        return 'Import a local ggml file. Not the Whisper API.';
+      case 'fixture-replay':
+        return 'Locked golden transcript for make demo. Will not transcribe a live meeting.';
+      default:
+        return engine.notes;
+    }
+  }
+
+  function liveEngines() {
+    return engines.filter((e) => e.live_ready && e.id !== 'fixture-replay');
+  }
+
+  function preferredLiveEngine() {
+    const live = liveEngines();
+    const chosen = live.find((e) => e.id === defaultModel);
+    if (chosen) return chosen;
+    return live.find((e) => e.id === 'apple-speech-ondevice') ?? live[0];
+  }
+
+  function liveTranscribeModel(): string | undefined {
+    return preferredLiveEngine()?.id;
+  }
+
+  async function preferLiveDefault() {
+    if (defaultModel !== 'fixture-replay') return;
+    const live = preferredLiveEngine();
+    if (!live) return;
+    await setDefaultModel(live.id);
+  }
+
+  const appleEngine = $derived(engines.find((e) => e.id === 'apple-speech-ondevice'));
+  const parakeetEngine = $derived(engines.find((e) => e.id === 'parakeet-tdt-0.6b-v3'));
+  const liveEngineLabel = $derived(
+    preferredLiveEngine()?.name ?? appleEngine?.name ?? 'Choose an engine',
+  );
+
   async function stopAndTranscribe() {
     if (!liveId) return;
     const id = liveId;
@@ -186,16 +272,7 @@
     window.clearInterval(timer);
     try {
       await api.stop(id);
-      busy = 'Transcribing on this Mac…';
-      try {
-        const detail = await api.transcribe(id);
-        selected = detail;
-        titleDraft = detail.session.title;
-        tagDraft = detail.tags.join(', ');
-      } catch (e) {
-        fail(e);
-        await openSession(id);
-      }
+      await transcribeAfterStop(id);
     } finally {
       liveId = null;
       liveStatus = 'idle';
@@ -203,6 +280,36 @@
       busy = '';
     }
     await refresh();
+  }
+
+  async function transcribeAfterStop(id: string) {
+    busy = 'Transcribing on this Mac…';
+    try {
+      const detail = await api.transcribe(id, liveTranscribeModel());
+      selected = detail;
+      titleDraft = detail.session.title;
+      tagDraft = detail.tags.join(', ');
+    } catch (e) {
+      fail(e);
+      await openSession(id);
+    }
+  }
+
+  async function transcribeSelected() {
+    if (!selected) return;
+    err = '';
+    busy = 'Transcribing on this Mac…';
+    try {
+      const detail = await api.transcribe(selected.session.id, liveTranscribeModel());
+      selected = detail;
+      titleDraft = detail.session.title;
+      tagDraft = detail.tags.join(', ');
+    } catch (e) {
+      fail(e);
+    } finally {
+      busy = '';
+      await refresh();
+    }
   }
 
   function dayBound(iso: string, end: boolean): string | undefined {
@@ -294,21 +401,81 @@
     await api.settingsSet('default_model', id);
   }
 
-  async function installEngine(engineId: string) {
-    const sha = (shaDraft[engineId] ?? '').trim().toLowerCase();
-    if (!sha || sha.length !== 64) {
-      err = 'Paste the 64-character SHA-256 of the local weights file.';
-      return;
-    }
-    const picked = await open({ multiple: false, title: 'Choose local model weights' });
+  async function importEngine(engineId: string) {
+    const directory = engineId === 'parakeet-tdt-0.6b-v3';
+    const picked = await open({
+      multiple: false,
+      directory,
+      title: directory ? 'Choose Parakeet TDT folder' : 'Choose Whisper ggml file',
+    });
     if (!picked || Array.isArray(picked)) return;
-    busy = 'Installing local weights…';
+    busy = 'Importing local weights…';
     try {
-      await api.installModelFile(engineId, picked, sha);
+      await api.importModel(engineId, picked);
       await refresh();
       engines = await api.engines();
     } finally {
       busy = '';
+    }
+  }
+
+  async function downloadParakeet(variant: 'int8' | 'fp32') {
+    settingsOpen = true;
+    err = '';
+    download = {
+      active: true,
+      failed: false,
+      variant,
+      file: '',
+      file_index: 0,
+      file_count: variant === 'int8' ? 3 : 4,
+      received: 0,
+      percent: 0,
+      message:
+        variant === 'int8'
+          ? 'Starting Parakeet INT8 (~670 MB)…'
+          : 'Starting Parakeet FP32 (~2.5 GB)…',
+    };
+    busy = download.message;
+    try {
+      await api.downloadParakeet(variant);
+      await refresh();
+      engines = await api.engines();
+      await setDefaultModel('parakeet-tdt-0.6b-v3');
+      download = {
+        active: false,
+        failed: false,
+        variant,
+        file: '',
+        file_index: download?.file_count ?? 0,
+        file_count: download?.file_count ?? 0,
+        received: download?.received ?? 0,
+        percent: 100,
+        message: 'Parakeet is ready. Using it for live recordings.',
+      };
+      busy = download.message;
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      fail(e);
+      download = {
+        active: false,
+        failed: true,
+        variant,
+        file: download?.file ?? '',
+        file_index: download?.file_index ?? 0,
+        file_count: download?.file_count ?? 0,
+        received: download?.received ?? 0,
+        percent: download?.percent ?? 0,
+        message,
+      };
+    } finally {
+      if (!download?.failed) {
+        window.setTimeout(() => {
+          if (download && !download.active && !download.failed) busy = '';
+        }, 2500);
+      } else {
+        busy = '';
+      }
     }
   }
 
@@ -336,10 +503,50 @@
   onMount(() => {
     boot().catch(fail);
     let unlisten: Promise<() => void> | undefined;
+    let unlistenHud: Promise<() => void> | undefined;
+    let unlistenDl: Promise<() => void> | undefined;
     let scanTimer: number | undefined;
     if (isTauri()) {
       unlisten = listen<{ mode: string; state: string }>('sotto://hotkey', (event) => {
         onHotkey(event.payload).catch(fail);
+      });
+      unlistenHud = listen<{ sessionId: string }>('sotto://hud-stopped', (event) => {
+        const id = event.payload.sessionId;
+        liveId = null;
+        liveStatus = 'idle';
+        window.clearInterval(timer);
+        elapsed = 0;
+        busy = 'Transcribing on this Mac…';
+        transcribeAfterStop(id)
+          .catch(fail)
+          .finally(() => {
+            busy = '';
+            refresh().catch(fail);
+          });
+      });
+      unlistenDl = listen<{
+        phase: string;
+        variant: string;
+        file: string;
+        file_index: number;
+        file_count: number;
+        received: number;
+        percent: number;
+        message: string;
+      }>('sotto://model-download', (event) => {
+        const next = event.payload;
+        download = {
+          active: next.phase !== 'done' && next.phase !== 'error',
+          failed: next.phase === 'error',
+          variant: next.variant,
+          file: next.file,
+          file_index: next.file_index,
+          file_count: next.file_count,
+          received: next.received,
+          percent: next.percent,
+          message: next.message,
+        };
+        if (download.active || download.failed) busy = next.message;
       });
       scanTimer = window.setInterval(() => scanMeetings().catch(fail), 15000);
       scanMeetings().catch(fail);
@@ -348,6 +555,8 @@
       window.clearInterval(timer);
       window.clearInterval(scanTimer);
       unlisten?.then((fn) => fn());
+      unlistenHud?.then((fn) => fn());
+      unlistenDl?.then((fn) => fn());
     };
   });
 </script>
@@ -393,6 +602,26 @@
           Record
         </button>
       {/if}
+      <select
+        class="source-pick"
+        value={liveTranscribeModel() ?? defaultModel}
+        onchange={(e) => setDefaultModel((e.currentTarget as HTMLSelectElement).value).catch(fail)}
+        disabled={!tauri || !!busy}
+        aria-label="Transcription engine"
+      >
+        {#each listedEngines.filter((e) => e.id !== 'fixture-replay') as engine}
+          <option value={engine.id} disabled={!engine.live_ready}>{engine.name}</option>
+        {/each}
+      </select>
+      {#if parakeetEngine && (!parakeetEngine.live_ready || download?.active)}
+        <button class="ghost" disabled={!tauri || !!busy} onclick={() => downloadParakeet('int8').catch(fail)}>
+          {#if download?.active}
+            Downloading {download.percent}%
+          {:else}
+            Download Parakeet
+          {/if}
+        </button>
+      {/if}
       <button class="ghost" onclick={() => openSettings().catch(fail)}>Models</button>
     </div>
   </header>
@@ -400,7 +629,25 @@
   {#if !tauri}
     <div class="banner">This is the desk shell. Run <span class="mono">make dev</span> to talk to the local store. <span class="mono">make demo</span> proves the privacy invariants without the UI.</div>
   {/if}
-  {#if busy}
+  {#if download}
+    <div class="dl-dock" class:work={download.active} class:bad={download.failed} role="status">
+      <div class="dl-copy">
+        <strong>
+          {#if download.failed}
+            Download failed
+          {:else if download.active}
+            {download.percent}%
+          {:else}
+            Ready
+          {/if}
+        </strong>
+        <span>{download.message}</span>
+      </div>
+      <div class="dl-track" class:pulse={download.active && download.percent < 2}>
+        <span style="width: {Math.max(download.active ? 4 : 0, download.percent)}%"></span>
+      </div>
+    </div>
+  {:else if busy}
     <div class="banner">{busy}</div>
   {/if}
   {#if err}
@@ -443,7 +690,7 @@
           <em>{s.status} · {s.id}</em>
         </button>
       {:else}
-        <p class="empty">No sessions yet. Record a fixture capture to seed the desk.</p>
+        <p class="empty">No sessions yet. Record on this Mac after consent. Transcribe with Apple on-device Speech, a local Whisper file, or Parakeet.</p>
       {/each}
     </aside>
 
@@ -490,13 +737,31 @@
               <p class="seg"><span class="mono t">{formatStamp(seg.start_ms)}</span> {seg.text}</p>
             {/each}
           {:else}
-            <p class="empty">No transcript yet. Install a local model to transcribe a live recording. make demo still uses fixture-replay.</p>
+            <p class="empty">No transcript yet. Stop uses Apple on-device Speech when it is ready. You can also download Parakeet.</p>
+            <div class="title-row">
+              <button class="primary" disabled={!tauri || !!busy} onclick={() => transcribeSelected().catch(fail)}>
+                Transcribe with {liveEngineLabel}
+              </button>
+              {#if parakeetEngine && !parakeetEngine.live_ready}
+                <button class="ghost" disabled={!tauri || !!busy} onclick={() => downloadParakeet('int8').catch(fail)}>
+                  Download Parakeet INT8
+                </button>
+              {/if}
+            </div>
           {/if}
         </section>
       {:else}
         <div class="blank">
           <p class="wordmark">Quiet notes. Local audio.</p>
-          <p>Sotto does not join the call. Wave 1 records a golden fixture, encrypts it, and transcribes offline.</p>
+          <p>Sotto does not join the call. Live recordings stay encrypted here. Pick Apple Speech in the header — no download. Or download Parakeet INT8 from Models.</p>
+          {#if parakeetEngine && !parakeetEngine.live_ready}
+            <div class="title-row">
+              <button class="ghost" disabled={!tauri || !!busy} onclick={() => downloadParakeet('int8').catch(fail)}>
+                Download Parakeet INT8 (~670 MB)
+              </button>
+              <button class="ghost" onclick={() => openSettings().catch(fail)}>All engines</button>
+            </div>
+          {/if}
         </div>
       {/if}
     </main>
@@ -512,6 +777,7 @@
         <li>Audio is encrypted at rest.</li>
         <li>Telemetry is off.</li>
         <li>Cloud engines stay off unless you turn them on.</li>
+        <li>Live transcription uses Apple on-device Speech, or local Whisper / Parakeet weights. Fixture replay is only for make demo.</li>
       </ul>
       <p class="fine">You are responsible for telling others when the law requires consent to record.</p>
       <button class="primary" onclick={() => finishOnboarding().catch(fail)}>Enter the desk</button>
@@ -570,39 +836,77 @@
       class="card wide"
       role="dialog"
       aria-modal="true"
-      aria-label="Engines"
+      aria-label="Models"
       tabindex="-1"
       onclick={(e) => e.stopPropagation()}
       onkeydown={(e) => e.stopPropagation()}
     >
-      <p class="wordmark">Engines</p>
-      {#if engines.length}
-        {#each engines as engine}
-          <div class="engine">
-            <strong>{engine.name}</strong>
-            <span class="mono">{engine.mode} · {engine.install_state}</span>
+      <div class="sheet-head">
+        <p class="wordmark">Models</p>
+        <button class="solid" onclick={() => (settingsOpen = false)}>Done</button>
+      </div>
+      <p class="lead">Apple Speech needs no download. Parakeet and Whisper need weights you install. Fixture replay is demo-only.</p>
+      {#if listedEngines.length}
+        {#each listedEngines as engine}
+          <div class="engine" class:is-default={defaultModel === engine.id}>
+            <div class="engine-head">
+              <strong>{engine.name}</strong>
+              <span class="pill {engineTone(engine)}">{engineStatus(engine)}</span>
+              {#if defaultModel === engine.id}
+                <span class="pill current">Default</span>
+              {/if}
+            </div>
+            <p class="engine-blurb">{engineBlurb(engine)}</p>
             {#if engine.id === 'parakeet-tdt-0.6b-v3'}
-              <span class="mono">runtime {parakeetStatus}</span>
-            {/if}
-            <p>{engine.notes}</p>
-            {#if engine.id === 'parakeet-tdt-0.6b-v3'}
-              <p>Runtime ready means on-device decode is compiled in. Real weights are encoder-model.onnx, decoder_joint-model.onnx, and vocab.txt in the Parakeet TDT folder. A dummy checksum file is not a model. It will never replay the golden fixture as Parakeet.</p>
+              <p class="engine-meta mono">decoder {parakeetStatus}</p>
+              {#if download}
+                <div class="dl-card" class:bad={download.failed} class:on={download.active}>
+                  <p class="engine-meta">{download.message}</p>
+                  <div class="dl-track" class:pulse={download.active && download.percent < 2}>
+                    <span style="width: {Math.max(download.active ? 4 : 0, download.percent)}%"></span>
+                  </div>
+                  <p class="engine-meta mono">{download.percent}%</p>
+                </div>
+              {/if}
             {/if}
             <div class="engine-actions">
-              <button class="ghost" onclick={() => setDefaultModel(engine.id).catch(fail)}>
-                {defaultModel === engine.id ? 'Default' : 'Use as default'}
-              </button>
-              {#if engine.id !== 'fixture-replay' && engine.install_state !== 'ready'}
-                <input
-                  class="tag-input"
-                  placeholder="SHA-256 of local file"
-                  value={shaDraft[engine.id] ?? ''}
-                  oninput={(e) =>
-                    (shaDraft = { ...shaDraft, [engine.id]: (e.currentTarget as HTMLInputElement).value })}
-                />
-                <button class="ghost" onclick={() => installEngine(engine.id).catch(fail)}>Install file</button>
+              {#if engine.id === 'apple-speech-ondevice'}
+                <button
+                  class={engine.live_ready ? 'solid' : 'ghost'}
+                  onclick={() => setDefaultModel(engine.id).catch(fail)}
+                >
+                  {defaultModel === engine.id ? 'Using for live' : 'Use for live recordings'}
+                </button>
+              {:else if engine.id === 'parakeet-tdt-0.6b-v3'}
+                <button class="solid" disabled={!!busy} onclick={() => downloadParakeet('int8').catch(fail)}>
+                  {#if download?.active && download.variant === 'int8'}
+                    Downloading INT8 {download.percent}%
+                  {:else}
+                    Download INT8 (~670 MB)
+                  {/if}
+                </button>
+                <button class="ghost" onclick={() => importEngine(engine.id).catch(fail)}>Import folder</button>
+                <button class="ghost" disabled={!!busy} onclick={() => downloadParakeet('fp32').catch(fail)}>
+                  {#if download?.active && download.variant === 'fp32'}
+                    Downloading FP32 {download.percent}%
+                  {:else}
+                    Download FP32 (~2.5 GB)
+                  {/if}
+                </button>
+                <button class="ghost" onclick={() => setDefaultModel(engine.id).catch(fail)}>
+                  {defaultModel === engine.id ? 'Using for live' : 'Use as default'}
+                </button>
+              {:else if engine.id === 'whisper-large-v3-turbo'}
+                <button class="solid" onclick={() => importEngine(engine.id).catch(fail)}>Import ggml file</button>
+                <button class="ghost" onclick={() => setDefaultModel(engine.id).catch(fail)}>
+                  {defaultModel === engine.id ? 'Using for live' : 'Use as default'}
+                </button>
+              {:else}
+                <button class="ghost" onclick={() => setDefaultModel(engine.id).catch(fail)}>
+                  {defaultModel === engine.id ? 'Demo default' : 'Use only for demo'}
+                </button>
               {/if}
-              {#if engine.id !== 'fixture-replay' && engine.install_state === 'ready'}
+              {#if engine.id !== 'fixture-replay' && engine.id !== 'apple-speech-ondevice' && (engine.live_ready || engine.install_state === 'ready')}
                 <button class="ghost" onclick={() => removeEngine(engine.id).catch(fail)}>Remove weights</button>
               {/if}
             </div>
@@ -611,7 +915,8 @@
       {:else}
         <p class="fine">Engine catalog loads when the desk talks to the local store.</p>
       {/if}
-      <p class="fine">Install is something you start. Demo never fetches weights. A failed checksum is discarded.</p>
+      <details class="more">
+        <summary>Privacy, shortcuts, and this Mac</summary>
       <p class="wordmark privacy-h">Privacy</p>
       <div class="engine">
         <strong>Telemetry</strong>
@@ -673,7 +978,7 @@
       <div class="engine">
         <strong>Record shortcut</strong>
         <span class="mono">{hotkeyMode}</span>
-        <p>Toggle starts or stops through the consent card. Push-to-talk never skips consent.</p>
+        <p>Fn is always armed on this Mac: tap to start or stop, hold to talk. It still cannot skip the consent card. macOS may ask for Input Monitoring. Command+Shift+Space remains a backup.</p>
         <div class="engine-actions">
           <input
             class="tag-input"
@@ -719,7 +1024,7 @@
         <p>Removes sessions, search index, and encrypted audio on this Mac.</p>
         <button class="ghost" onclick={() => (deleteAllOpen = true)}>Delete all data</button>
       </div>
-      <button class="ghost" onclick={() => (settingsOpen = false)}>Close</button>
+      </details>
     </div>
   </div>
 {/if}
@@ -747,8 +1052,38 @@
   button.danger { background: var(--led); color: white; font-weight: 600; }
   button.ghost { background: transparent; border: 1px solid var(--line); }
   button:disabled { opacity: 0.4; cursor: not-allowed; }
-  .banner { padding: 8px 20px; background: #241c14; color: var(--mute); font-size: 13px; }
+  .banner { padding: 10px 20px; background: #241c14; color: var(--mute); font-size: 13px; }
   .banner.bad { background: #3a1814; color: #f3c0b6; }
+  .dl-dock {
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    z-index: 80;
+    padding: 14px 16px;
+    background: var(--paper);
+    color: var(--ink);
+    border-radius: 12px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+    font-weight: 600;
+  }
+  .dl-dock.bad { background: #3a1814; color: #f3c0b6; }
+  .dl-copy { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+  .dl-track { height: 8px; margin-top: 10px; background: #d9ccb4; border-radius: 99px; overflow: hidden; }
+  .dl-dock.bad .dl-track { background: #5a241c; }
+  .dl-track span {
+    display: block; height: 100%; width: 0;
+    background: var(--ink); border-radius: 99px;
+    transition: width 180ms linear;
+  }
+  .dl-dock.bad .dl-track span { background: #f3c0b6; }
+  .dl-track.pulse span { animation: pulse 1.2s ease-in-out infinite; width: 18% !important; }
+  .dl-card { margin-top: 10px; padding: 10px 12px; background: #efe6d4; border: 1px solid #d9ccb4; }
+  .dl-card.bad { background: #f3c0b6; border-color: #d23a22; }
+  .dl-card.on { background: #1c1914; color: #f3ead8; }
+  .dl-card.on .engine-meta { color: #d8ccb8; }
+  .dl-card .dl-track { background: #3a322c; }
+  .dl-card.on .dl-track span, .dl-card .dl-track span { background: var(--ok); }
   .body { flex: 1; display: grid; grid-template-columns: minmax(220px, 280px) 1fr; min-height: 0; }
   aside { border-right: 1px solid var(--line); overflow: auto; padding: 12px; }
   .aside-h { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--mute); margin-bottom: 8px; }
@@ -769,17 +1104,36 @@
   .empty, .fine { color: var(--mute); }
   .blank { max-width: 36rem; padding-top: 12vh; }
   .blank .wordmark { font-size: 42px; display: block; margin-bottom: 12px; }
-  .modal { position: fixed; inset: 0; background: rgba(10,8,6,0.72); display: grid; place-items: center; padding: 24px; }
+  .modal { position: fixed; inset: 0; z-index: 20; background: rgba(10,8,6,0.72); display: grid; place-items: center; padding: 24px; }
   .card { background: var(--paper); color: var(--ink); padding: 28px; width: min(520px, 100%); max-height: 90vh; overflow: auto; }
-  .card.wide { width: min(640px, 100%); }
+  .card.wide { width: min(680px, 100%); }
   .card .wordmark { font-size: 32px; display: block; margin-bottom: 12px; }
   .privacy-h { font-size: 22px !important; margin-top: 16px; }
   .card ul { padding-left: 1.1rem; }
   .card blockquote { background: #e7dcc6; padding: 12px 14px; margin: 0 0 16px; }
+  .card .fine { color: #6d6458; }
+  .card button { color: var(--ink); background: #efe4cf; border: 1px solid #8f826c; }
+  .card button.ghost { background: #fffaf0; color: var(--ink); border: 1px solid #8f826c; }
+  .card button.solid, .card button.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); font-weight: 600; }
+  .card button.danger { background: var(--led); color: white; border-color: var(--led); }
+  .card .tag-input { color: var(--ink); background: #fffaf0; border: 1px solid #8f826c; }
+  .sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+  .sheet-head .wordmark { margin-bottom: 0; }
+  .lead { color: #4f473c; margin: 0 0 8px; max-width: 52ch; }
+  .engine { border-top: 1px solid #d9ccb4; padding: 14px 0; }
+  .engine.is-default { background: #efe6d4; margin: 0 -12px; padding: 14px 12px; }
+  .engine-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .engine-blurb { margin: 6px 0 0; color: #4f473c; max-width: 52ch; }
+  .engine-meta { margin: 4px 0 0; color: #6d6458; font-size: 12px; }
+  .pill { font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; padding: 3px 8px; border: 1px solid #c4b79a; color: #4f473c; }
+  .pill.ok { background: #d7e2c8; border-color: #8aa075; color: #243018; }
+  .pill.wait { background: #f3e0b5; border-color: #c9a227; color: #3f3208; }
+  .pill.demo { background: #ece4d4; color: #6d6458; }
+  .pill.current { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .engine-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+  .more { margin-top: 8px; border-top: 1px solid #d9ccb4; padding-top: 8px; }
+  .more summary { cursor: pointer; font-weight: 600; padding: 8px 0; }
   .actions { display: flex; gap: 8px; justify-content: flex-end; }
-  .engine { border-top: 1px solid #d9ccb4; padding: 12px 0; }
-  .engine span { display: block; color: #6d6458; font-size: 12px; }
-  .engine-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
   pre { white-space: pre-wrap; font-family: inherit; }
   @media (max-width: 900px) {
     .body { grid-template-columns: 1fr; }

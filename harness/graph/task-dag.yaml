@@ -384,3 +384,19 @@ waves:
       - id: T48-evidence-scope
         summary: keep portable, desktop, hardware, and real-model evidence classes distinct
         contract_tests: [CT-coverage-honesty]
+  - id: 49
+    spec: apple-speech
+    name: ondevice
+    depends_on: [42]
+    tasks:
+      - id: T49-apple-ondevice
+        summary: Apple SpeechAnalyzer is a local on-device engine; demo never uses it
+        contract_tests: [CT-apple-speech-ondevice]
+  - id: 50
+    spec: parakeet-download
+    name: user-download
+    depends_on: [42]
+    tasks:
+      - id: T50-parakeet-download
+        summary: user-started Parakeet INT8/FP32 download with staging; import and demo never fetch
+        contract_tests: [CT-parakeet-download]

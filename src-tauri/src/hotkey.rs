@@ -5,6 +5,8 @@ use crate::store::Store;
 
 pub const DEFAULT_TOGGLE: &str = "CommandOrControl+Shift+Space";
 pub const DEFAULT_MODE: &str = "toggle";
+/// Hold Fn at least this long to talk; a shorter press toggles record.
+pub const FN_HOLD_MS: u64 = 280;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct HotkeyView {
@@ -23,6 +25,22 @@ pub fn parse_hotkey(raw: &str) -> Result<String> {
         ));
     }
     Ok(t.to_string())
+}
+
+/// Fn tap vs hold. The event tap uses this so tests never grab the key.
+pub fn fn_gesture(held_ms: u64) -> &'static str {
+    if held_ms >= FN_HOLD_MS {
+        "ptt"
+    } else {
+        "toggle"
+    }
+}
+
+pub fn is_fn_shortcut(raw: &str) -> bool {
+    matches!(
+        raw.trim().to_ascii_lowercase().as_str(),
+        "fn" | "globe" | "fn-key"
+    )
 }
 
 pub fn parse_hotkey_mode(raw: &str) -> Result<String> {

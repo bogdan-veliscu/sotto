@@ -40,6 +40,20 @@ export const api = {
   stop: (sessionId: string) => call<Session>('recorder_stop', { sessionId }),
   transcribe: (sessionId: string, modelId?: string) =>
     call<SessionDetail>('transcribe_run', { sessionId, modelId }),
+  hudTick: () =>
+    call<{
+      led_on: boolean;
+      paused: boolean;
+      elapsed_ms: number;
+      clock: string;
+      caption: string;
+      status_label: string;
+      source: string;
+      source_label: string;
+      title: string;
+      session_id: string;
+      level: number;
+    }>('hud_tick'),
   search: (
     q: string,
     filters?: { title?: string; createdFrom?: string; createdTo?: string; tag?: string },
@@ -66,6 +80,15 @@ export const api = {
       engineId,
       path,
       expectedSha256,
+    }),
+  importModel: (engineId: string, path: string) =>
+    call<{ engine_id: string; bytes_written: number; sha256: string }>('model_import_local', {
+      engineId,
+      path,
+    }),
+  downloadParakeet: (variant: string) =>
+    call<{ engine_id: string; bytes_written: number; sha256: string }>('model_download_parakeet', {
+      variant,
     }),
   deleteModel: (engineId: string) => call<void>('model_delete', { engineId }),
   deleteAll: () => call<void>('data_delete_all'),
