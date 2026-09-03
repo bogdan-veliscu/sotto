@@ -38,6 +38,13 @@ export type SearchHit = {
   snippet: string;
 };
 
+export type RecoverableCapture = {
+  session_id: string;
+  title: string;
+  chunk_count: number;
+  duration_ms: number;
+};
+
 export type Engine = {
   id: string;
   vendor: string;

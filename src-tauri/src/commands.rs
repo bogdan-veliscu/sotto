@@ -11,7 +11,7 @@ use crate::error::{ErrorBody, SottoError};
 use crate::hotkey::{self, HotkeyView};
 use crate::meeting::{self, DetectedMeeting};
 use crate::presence::{hud_from_status, hud_view, login_item_backend, HudView};
-use crate::store::{SearchHit, Session, SessionDetail, Store};
+use crate::store::{RecoverableCapture, SearchHit, Session, SessionDetail, Store};
 
 pub struct AppState {
     pub store: Mutex<Store>,
@@ -117,6 +117,67 @@ pub fn sessions_get(
         .lock()
         .unwrap()
         .get_detail(&session_id)
+        .map_err(map_err)
+}
+
+fn recovery_blocked(state: &AppState, session_id: &str) -> Option<ErrorBody> {
+    if state
+        .live
+        .lock()
+        .ok()
+        .map(|live| live.contains_key(session_id))
+        .unwrap_or(false)
+    {
+        Some(
+            SottoError::app(
+                "RECOVERY_LIVE",
+                "That recording is still running in this process.",
+                true,
+                "Stop it from the desk instead of recovering.",
+            )
+            .into(),
+        )
+    } else {
+        None
+    }
+}
+
+#[tauri::command]
+pub fn recovery_list(state: State<AppState>) -> Result<Vec<RecoverableCapture>, ErrorBody> {
+    let live_ids: Vec<String> = state.live.lock().unwrap().keys().cloned().collect();
+    let mut found = state
+        .store
+        .lock()
+        .unwrap()
+        .list_recoverable()
+        .map_err(map_err)?;
+    found.retain(|item| !live_ids.iter().any(|id| id == &item.session_id));
+    Ok(found)
+}
+
+#[tauri::command]
+pub fn recovery_recover(state: State<AppState>, session_id: String) -> Result<Session, ErrorBody> {
+    if let Some(err) = recovery_blocked(&state, &session_id) {
+        return Err(err);
+    }
+    state
+        .store
+        .lock()
+        .unwrap()
+        .recover_live(&session_id)
+        .map_err(map_err)
+}
+
+#[tauri::command]
+pub fn recovery_discard(state: State<AppState>, session_id: String) -> Result<Session, ErrorBody> {
+    if let Some(err) = recovery_blocked(&state, &session_id) {
+        return Err(err);
+    }
+    state
+        .store
+        .lock()
+        .unwrap()
+        .discard_live(&session_id)
         .map_err(map_err)
 }
 

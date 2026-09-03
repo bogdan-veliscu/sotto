@@ -1,7 +1,7 @@
 # Pair turn
 
-- **slice:** L (`feat/model-onboarding`)
-- **driver:** Cursor
-- **navigator:** Codex — disagree-review the L PR; no product edits unless `FIX`
-- **after ship L:** Codex drives **M** (crash-recovery)
-- **keyboard:** released after the model-onboarding commit
+- **slice:** M (`feat/crash-recovery`)
+- **driver:** Cursor (Codex was idle; do not wait)
+- **navigator:** Codex after the M PR is open — `SHIP` / `FIX` only
+- **after ship M:** Cursor drives **N** (macos-founder-certification)
+- **keyboard:** Cursor, writing M

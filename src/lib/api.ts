@@ -1,5 +1,12 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { Engine, PrivacySettings, SearchHit, Session, SessionDetail } from './types';
+import type {
+  Engine,
+  PrivacySettings,
+  RecoverableCapture,
+  SearchHit,
+  Session,
+  SessionDetail,
+} from './types';
 
 export const isTauri = () =>
   typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
@@ -31,6 +38,9 @@ export const api = {
   engines: () => call<Engine[]>('engines_list'),
   sessions: () => call<Session[]>('sessions_list', { limit: 50 }),
   session: (sessionId: string) => call<SessionDetail>('sessions_get', { sessionId }),
+  recoveries: () => call<RecoverableCapture[]>('recovery_list'),
+  recoverLive: (sessionId: string) => call<Session>('recovery_recover', { sessionId }),
+  discardLive: (sessionId: string) => call<Session>('recovery_discard', { sessionId }),
   start: (title?: string, source = 'mic') =>
     call<Session>('recorder_start', { args: { title, source } }),
   consent: (sessionId: string) => call<Session>('recorder_consent', { sessionId }),
