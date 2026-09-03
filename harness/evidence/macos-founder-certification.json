@@ -1,0 +1,29 @@
+{
+  "schema": "sotto/macos-founder-certification/v1",
+  "commit": "14ab9fca6d6613ceb21ec5eb19a6c4ee49d47468",
+  "recorded_at": "2026-09-03T07:37:41Z",
+  "platform": "darwin",
+  "automated": {
+    "desktop_build": "pass",
+    "ui_check": "pass",
+    "app_bundle": "pass"
+  },
+  "hardware": {
+    "consent": "not-run",
+    "mic": "not-run",
+    "system": "not-run",
+    "mixed": "not-run",
+    "pause_resume": "not-run",
+    "recovery": "not-run",
+    "encrypted_audio": "not-run",
+    "real_local_stt": "not-run"
+  },
+  "commands": {
+    "graph": "make graph",
+    "desktop_build": "cargo check --manifest-path src-tauri/Cargo.toml --features desktop --bins",
+    "ui_check": "npm run check",
+    "app_bundle": "src-tauri/target/release/bundle/macos/Sotto.app",
+    "graph_status": "pass"
+  },
+  "notes": "Content-free founder certification. No transcript or audio."
+}

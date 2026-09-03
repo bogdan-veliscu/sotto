@@ -1,4 +1,4 @@
-.PHONY: graph verify contract demo lint test dev check lock ci build
+.PHONY: graph verify contract demo lint test dev check lock ci build cert-desktop
 
 PYTEST = python3 -m pytest
 CARGO = cargo
@@ -47,5 +47,6 @@ ci: graph
 
 check: ci
 
-status:
-	python3 harness/scripts/validate_graph.py --status
+# macOS founder certification. Never requests TCC. Never stores transcript/audio.
+cert-desktop:
+	python3 harness/scripts/macos_cert.py --automated
