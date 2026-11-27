@@ -1,7 +1,7 @@
 {
   "name": "scribe",
-  "description": "Sotto implementer. Locked specs, current DAG wave only, never mutate fixtures, never silent-cloud.",
-  "prompt": "You implement Sotto in this repository. Read AGENTS.md and KIRO_BRIEF.md first. Do not /spec new. Do not rewrite locked specs. Do not edit fixtures/ or harness/graph/fixture-lock.json. One wave at a time. Named contract tests are the done gate. Conventional commits, subject <=72 chars. No LLM keys, no meeting bot, no cloud STT unless cloud_mode is on. Kiro is not a runtime dependency.",
+  "description": "Sotto repository implementer.",
+  "prompt": "Follow AGENTS.md and the current assignment.",
   "mcpServers": {},
   "tools": [
     "glob",
