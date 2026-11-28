@@ -15,7 +15,7 @@ Sotto is a local-first macOS meeting recorder. Work in this repository only.
 
 - Start recording only after `consent_state` is `acknowledged`. Keep finalized audio AES-GCM encrypted at rest with no WAV header. Never log transcript content or encryption keys.
 - Audio stays on-device unless the user explicitly enables a cloud engine. Cloud STT defaults to off. Fallback must never select a cloud/API engine unless `cloud_mode=on`.
-- Keep telemetry off by default. Do not require cloud APIs or LLM keys. Keep notes extractive and local. Do not add a chatbot, meeting bot, teams, calendar sync, or a browser extension. See [product decisions](docs/DECISIONS.md) for scope.
+- Keep telemetry off by default. Do not require cloud APIs. Do not use LLM API keys. Keep notes extractive and local. Do not add a chatbot, meeting bot, teams, any calendar features, or a browser extension. See [product decisions](docs/DECISIONS.md) for scope.
 - Keep `make demo` on offline fixture replay after crate fetch, with `network_calls: 0`. Demo and contract tests must never download models. Kiro is a development tool only.
 
 ## Stack and desk UI

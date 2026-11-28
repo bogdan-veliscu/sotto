@@ -1,4 +1,4 @@
-# Soft launch bar — trusted circle
+# Trusted-circle soft launch bar
 
 **Goal date context:** 2026-09-01. This is the shared done definition for lead + Codex.
 
@@ -38,10 +38,12 @@ Interviews-before-charging stays in `docs/LAUNCH_PLAN.md` Phase 0. Soft launch m
 - Founder daily-use evidence is N’s content-free manifest plus a human-run transcript on this Mac.
 - Dummy checksum `.bin` is never a runnable model.
 
-## Roles
+## Merge approval
 
-Ping-pong, not a permanent split. See `harness/dispatch/PAIR.md`.
+Merges require Bogdan's explicit approval. Agents never merge on their own. See the [pairing guide](../harness/dispatch/PAIR.md).
 
-- **Driver** writes the current slice. **Navigator** tries to prove it is not launch-ready.
-- Cursor owns `gh` merges and the N hardware pass.
-- Rotation: K Codex-drive → L Cursor-drive → M Codex-drive → N Cursor-drive → O Codex-drive.
+## Historical roles for PRs K through O
+
+- The **driver** wrote the assigned slice. The **navigator** reviewed launch readiness.
+- The original plan assigned Cursor the `gh` merges and the N hardware pass.
+- The planned rotation assigned K, M, and O to Codex and L and N to Cursor.
